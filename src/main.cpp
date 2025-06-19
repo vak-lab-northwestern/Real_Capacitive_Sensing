@@ -1,60 +1,54 @@
-  #include <Arduino.h>
-  #include <Wire.h>
-  #include "FDC2214.h"
+#include <Arduino.h>
+#include <Wire.h>
+#include "FDC2214.h"
 
+// Create FDC2214 object at I2C address 0
+FDC2214 capsense(FDC2214_I2C_ADDR_0);
 
+// Constants
+const float ref_clock = 40e6;        // 40 MHz reference clock
+const float inductance = 180e-9;     // 180 nH inductor value
+const float scale_factor = ref_clock / pow(2, 28);  // ~0.149 Hz per LSB
 
-FDC2214 capsense(FDC2214_I2C_ADDR_0); // Use FDC2214_I2C_ADDR_1 
+#define CHAN_COUNT 1  // Number of active sensor channels
 
-const int LED_1 = A1;
-const int LED_2 = A2;
-
-// ###
 void setup() {
-  // ### Start I2C 
-  pinMode(LED_1, OUTPUT);
-  pinMode(LED_2, OUTPUT);
-  digitalWrite(LED_1, LOW); // Ensure LED1 is off initially
-  digitalWrite(LED_2, LOW); 
+  // Initialize I2C and Serial
   Wire.begin();
-  //Wire.setClock(400000L);
-  
-  // ### Start serial
+  Serial.begin(115200);
   Serial.println("\nFDC2x1x test");
-  
-  // ### Start FDC
-  
+
+  // Check for I2C device
   Serial.print("Scanning I2C... ");
-  Wire.beginTransmission(FDC2214_I2C_ADDR_0); 
+  Wire.beginTransmission(FDC2214_I2C_ADDR_0);
   if (Wire.endTransmission() == 0) Serial.println("Device found!");
-  else Serial.println("No response, check wiring!");
+  else Serial.println("No response");
 
-  // Start FDC2212 with 2 channels init
-  bool capOk = capsense.begin(0x3, 0x4, 0x5, false); //setup first two channels, autoscan with 2 channels, deglitch at 10MHz, external oscillator 
-  // Start FDC2214 with 4 channels init
-//  bool capOk = capsense.begin(0xF, 0x6, 0x5, false); //setup all four channels, autoscan with 4 channels, deglitch at 10MHz, external oscillator 
-  // Start FDC2214 with 4 channels init
-//  bool capOk = capsense.begin(0xF, 0x6, 0x5, true); //setup all four channels, autoscan with 4 channels, deglitch at 10MHz, internal oscillator 
-
+  // Initialize FDC2214 with 2 channels, 10 MHz deglitch filter, external oscillator
+  bool capOk = capsense.begin(0x3, 0x4, 0x5, false);
+  if (capOk) Serial.println("Sensor OK");
+  else Serial.println("Sensor Fail");
 }
 
-// ### Tell aplication how many chanels will be smapled in main loop
-#define CHAN_COUNT 2
-#define THRESHOLD 20000
-
-
 void loop() {
-  unsigned long capa[CHAN_COUNT]; // variable to store data from FDC
-  for (int i = 0; i < CHAN_COUNT; i++){ // for each channel
-    // ### read 28bit data
-    capa[i]= capsense.getReading28(i);//  
-    // ### Transmit data to serial in simple format readable by SerialPlot application.
+  // Array to hold raw readings
+  unsigned long capa[CHAN_COUNT];
+
+  for (int i = 0; i < CHAN_COUNT; i++) {
+    // Read 28-bit raw capacitance data from channel
+    capa[i] = capsense.getReading28(i);
+    uint32_t raw = capa[i];
+
+    // Convert raw data to frequency
+    float freq = raw * scale_factor;  // in Hz
+
+    // Convert frequency to capacitance using LC formula
+    float capacitance_F = 1.0 / (pow(2 * M_PI * freq, 2) * inductance);
+    float capacitance_pF = capacitance_F * 1e12;  // convert to picofarads
+
+    Serial.print(capacitance_pF);
+
   }
 
-  digitalWrite(LED_1, (capa[0] < THRESHOLD) ? HIGH : LOW);
-  digitalWrite(LED_2, (capa[1] < THRESHOLD) ? HIGH : LOW);
-
-  delay(100); // Small delay for stability
-  // No point in sleeping
-  //delay(100); 
+  delay(100); // Delay for stability
 }
