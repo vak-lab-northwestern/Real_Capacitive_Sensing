@@ -1,6 +1,8 @@
 
-Main.cpp = Code deployed to ardiuno to collect data (has a conversion included to take raw data into cap values)
+Main.cpp = Code deployed to ardiuno to collect data (Contains raw data no conversion)
 
-Graphing.m = Code for matlab to create graphs of all the data (make sure to not have ardiuno software open while using matlab)
+Graphing.m = trash
 
-Capa_Data.py = Code used to filter the data collected 
+Easy_Graphing.py = New updated graphing that directly takes data and applies conversion allowing for 4 channel sensing (Remember to close serial plotter before accessing through python)
+
+Capa_Data.py = Code used to filter the data collected (Will combine with easy graphing soon)
