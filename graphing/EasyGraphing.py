@@ -1,49 +1,229 @@
+# import serial
+# import matplotlib.pyplot as plt
+# from collections import deque
+# import math
+# import csv
+# import time
+# import threading
+
+# # FDC2214 constants
+# ref_clock = 40e6  # Hz
+# scale_factor = ref_clock / (2 ** 28)  # ~0.149 Hz per LSB
+# inductance = 180e-9  # H
+
+# def raw_to_capacitance(raw):
+#     freq = raw * scale_factor
+#     if freq <= 0:
+#         return 0
+#     cap_F = 1.0 / ((2 * math.pi * freq) ** 2 * inductance)
+#     return cap_F * 1e12  # convert to picofarads
+
+# # Serial setup
+# ser = serial.Serial('COM8', 115200)  # Update COM port if needed
+# buffer_len = 100
+
+# # Create buffers for 4 channels
+# ch = [deque([0] * buffer_len) for _ in range(4)]
+
+# # Plot setup
+# plt.ion()
+# fig, ax = plt.subplots()
+# lines = [ax.plot(ch[i], label=f"CH{i}")[0] for i in range(4)]
+# ax.legend()
+
+# # Live update loop
+# while True:
+#     line = ser.readline().decode().strip()
+#     try:
+#         raw_values = list(map(int, line.split(",")))
+#         if len(raw_values) == 4:
+#             cap_values = [raw_to_capacitance(raw) for raw in raw_values]
+
+#             for i in range(4):
+#                 ch[i].append(cap_values[i])
+#                 ch[i].popleft()
+#                 lines[i].set_ydata(ch[i])
+
+#             ax.relim()
+#             ax.autoscale_view()
+#             plt.pause(0.01)
+#     except Exception as e:
+#         # Optional: print(f"Error: {e}") for debugging
+#         pass
+
 import serial
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
 from collections import deque
 import math
+import csv
+import time
+import threading
+import tkinter as tk
+from tkinter import filedialog
 
 # FDC2214 constants
 ref_clock = 40e6  # Hz
-scale_factor = ref_clock / (2 ** 28)  # ~0.149 Hz per LSB
+scale_factor = ref_clock / (2 ** 28)
 inductance = 180e-9  # H
 
 def raw_to_capacitance(raw):
     freq = raw * scale_factor
     if freq <= 0:
-        return 0
+        return 0.0
     cap_F = 1.0 / ((2 * math.pi * freq) ** 2 * inductance)
-    return cap_F * 1e12  # convert to picofarads
+    return cap_F * 1e12  # picofarads
 
-# Serial setup
-ser = serial.Serial('COM8', 115200)  # Update COM port if needed
+# Serial setup (adjust port as needed)
+ser = serial.Serial("COM8", 115200, timeout=1)
+
 buffer_len = 100
-
-# Create buffers for 4 channels
-ch = [deque([0] * buffer_len) for _ in range(4)]
+ch = [deque([0.0] * buffer_len) for _ in range(4)]
+start_time = time.time()
+time_buffer = deque([start_time - (buffer_len - i) * 0.1 for i in range(buffer_len)], maxlen=buffer_len)
 
 # Plot setup
 plt.ion()
 fig, ax = plt.subplots()
-lines = [ax.plot(ch[i], label=f"CH{i}")[0] for i in range(4)]
+lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(4)]
 ax.legend()
+ax.set_xlabel("Time (s)")
+ax.set_ylabel("Capacitance (pF)")
+ax.set_title("Live Capacitance from FDC2214 Channels")
+ax.grid(True)
 
-# Live update loop
-while True:
-    line = ser.readline().decode().strip()
-    try:
-        raw_values = list(map(int, line.split(",")))
-        if len(raw_values) == 4:
-            cap_values = [raw_to_capacitance(raw) for raw in raw_values]
+# Logging state (shared)
+logging_enabled = False
+csv_file = None
+csv_writer = None
+log_lock = threading.Lock()
 
+def choose_output_file():
+    root = tk.Tk()
+    root.withdraw()
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".csv",
+        filetypes=[("CSV files", "*.csv")],
+        title="Select CSV file to log to"
+    )
+    root.destroy()
+    return file_path
+
+def start_logging(event):
+    global logging_enabled, csv_file, csv_writer
+    if logging_enabled:
+        return
+    if csv_file is None:
+        fname = choose_output_file()
+        if not fname:
+            print("Logging cancelled (no file selected).")
+            return
+        try:
+            csv_file = open(fname, mode="w", newline="")
+            csv_writer = csv.writer(csv_file)
+            header = ["timestamp", "CH0_pF", "CH1_pF", "CH2_pF", "CH3_pF"]
+            csv_writer.writerow(header)
+            csv_file.flush()
+            print(f"[INFO] Logging started to {fname}")
+        except Exception as e:
+            print(f"[ERROR] Could not open file: {e}")
+            csv_file = None
+            return
+    logging_enabled = True
+    btn_start.label.set_text("Logging: ON")
+    btn_start.color = "lightgreen"
+    fig.canvas.draw_idle()
+
+def stop_logging(event):
+    global logging_enabled, csv_file, csv_writer
+    if not logging_enabled:
+        return
+    logging_enabled = False
+    btn_start.label.set_text("Start Logging")
+    btn_start.color = "0.85"
+    fig.canvas.draw_idle()
+    if csv_file:
+        with log_lock:
+            try:
+                csv_file.flush()
+                csv_file.close()
+                print("[INFO] Logging stopped and file closed.")
+            except Exception:
+                pass
+        csv_file = None
+        csv_writer = None
+
+# Buttons
+ax_start = plt.axes([0.7, 0.02, 0.1, 0.05])
+ax_stop = plt.axes([0.81, 0.02, 0.1, 0.05])
+btn_start = Button(ax_start, "Start Logging")
+btn_stop = Button(ax_stop, "Stop Logging")
+btn_start.on_clicked(start_logging)
+btn_stop.on_clicked(stop_logging)
+
+# Ensure the plot shows up
+fig.subplots_adjust(bottom=0.18)
+plt.show(block=False)
+
+def serial_worker():
+    global logging_enabled, csv_writer, csv_file
+    while True:
+        try:
+            raw_line = ser.readline().decode(errors="ignore").strip()
+            if not raw_line:
+                continue
+            parts = raw_line.split(",")
+            if len(parts) != 4:
+                continue
+            raw_vals = list(map(int, parts))
+            caps = [raw_to_capacitance(r) for r in raw_vals]
+
+            # update buffers
             for i in range(4):
-                ch[i].append(cap_values[i])
+                ch[i].append(caps[i])
                 ch[i].popleft()
-                lines[i].set_ydata(ch[i])
 
-            ax.relim()
-            ax.autoscale_view()
-            plt.pause(0.01)
-    except Exception as e:
-        # Optional: print(f"Error: {e}") for debugging
+            now = time.time()
+            for i in range(4):
+                ch[i].append(caps[i])
+                ch[i].popleft()
+                time_buffer.append(now)
+
+            # logging
+            if logging_enabled and csv_writer:
+                timestamp = time.time() - start_time
+                with log_lock:
+                    csv_writer.writerow([timestamp] + caps)
+                    csv_file.flush()
+        except Exception:
+            # silent; could log if debugging
+            continue
+
+# Start serial thread
+t = threading.Thread(target=serial_worker, daemon=True)
+t.start()
+
+try:
+    while True:
+        # update plot data
+        t_vals = [t - start_time for t in time_buffer]  # seconds since start
+        for i in range(4):
+            lines[i].set_data(t_vals, list(ch[i]))
+        ax.relim()
+        ax.autoscale_view()
+        fig.canvas.flush_events()
+        plt.pause(0.05)  # gives control back to GUI event loop
+except KeyboardInterrupt:
+    pass
+finally:
+    if csv_file:
+        with log_lock:
+            try:
+                csv_file.close()
+            except Exception:
+                pass
+    try:
+        ser.close()
+    except Exception:
         pass
+    print("Exiting.")
