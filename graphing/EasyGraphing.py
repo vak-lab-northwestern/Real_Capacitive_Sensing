@@ -1,56 +1,3 @@
-# import serial
-# import matplotlib.pyplot as plt
-# from collections import deque
-# import math
-# import csv
-# import time
-# import threading
-
-# # FDC2214 constants
-# ref_clock = 40e6  # Hz
-# scale_factor = ref_clock / (2 ** 28)  # ~0.149 Hz per LSB
-# inductance = 180e-9  # H
-
-# def raw_to_capacitance(raw):
-#     freq = raw * scale_factor
-#     if freq <= 0:
-#         return 0
-#     cap_F = 1.0 / ((2 * math.pi * freq) ** 2 * inductance)
-#     return cap_F * 1e12  # convert to picofarads
-
-# # Serial setup
-# ser = serial.Serial('COM8', 115200)  # Update COM port if needed
-# buffer_len = 100
-
-# # Create buffers for 4 channels
-# ch = [deque([0] * buffer_len) for _ in range(4)]
-
-# # Plot setup
-# plt.ion()
-# fig, ax = plt.subplots()
-# lines = [ax.plot(ch[i], label=f"CH{i}")[0] for i in range(4)]
-# ax.legend()
-
-# # Live update loop
-# while True:
-#     line = ser.readline().decode().strip()
-#     try:
-#         raw_values = list(map(int, line.split(",")))
-#         if len(raw_values) == 4:
-#             cap_values = [raw_to_capacitance(raw) for raw in raw_values]
-
-#             for i in range(4):
-#                 ch[i].append(cap_values[i])
-#                 ch[i].popleft()
-#                 lines[i].set_ydata(ch[i])
-
-#             ax.relim()
-#             ax.autoscale_view()
-#             plt.pause(0.01)
-#     except Exception as e:
-#         # Optional: print(f"Error: {e}") for debugging
-#         pass
-
 import serial
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
@@ -75,7 +22,7 @@ def raw_to_capacitance(raw):
     return cap_F * 1e12  # picofarads
 
 # Serial setup (adjust port as needed)
-ser = serial.Serial("COM8", 115200, timeout=1)
+ser = serial.Serial("/dev/tty.usbmodem2101", 115200, timeout=1)
 
 buffer_len = 100
 ch = [deque([0.0] * buffer_len) for _ in range(4)]
@@ -98,6 +45,9 @@ csv_file = None
 csv_writer = None
 log_lock = threading.Lock()
 
+# Initialize logging state
+print("[INFO] Logging system initialized. Click 'Start Logging' to begin data collection.")
+
 def choose_output_file():
     root = tk.Tk()
     root.withdraw()
@@ -111,47 +61,56 @@ def choose_output_file():
 
 def start_logging(event):
     global logging_enabled, csv_file, csv_writer
+    print("[DEBUG] Start button clicked")
+    
     if logging_enabled:
+        print("[DEBUG] Logging already enabled, ignoring click")
         return
-    if csv_file is None:
-        fname = choose_output_file()
-        if not fname:
-            print("Logging cancelled (no file selected).")
-            return
-        try:
-            csv_file = open(fname, mode="w", newline="")
-            csv_writer = csv.writer(csv_file)
-            header = ["timestamp", "CH0_pF", "CH1_pF", "CH2_pF", "CH3_pF"]
-            csv_writer.writerow(header)
-            csv_file.flush()
-            print(f"[INFO] Logging started to {fname}")
-        except Exception as e:
-            print(f"[ERROR] Could not open file: {e}")
-            csv_file = None
-            return
-    logging_enabled = True
-    btn_start.label.set_text("Logging: ON")
-    btn_start.color = "lightgreen"
-    fig.canvas.draw_idle()
+    
+    # Use fixed filename instead of file dialog
+    fname = "20250801_x4_yarn_capacitance.csv"
+    try:
+        csv_file = open(fname, mode="w", newline="")
+        csv_writer = csv.writer(csv_file)
+        header = ["timestamp", "CH0_pF", "CH1_pF", "CH2_pF", "CH3_pF"]
+        csv_writer.writerow(header)
+        csv_file.flush()
+        print(f"[INFO] Logging started to {fname}")
+        logging_enabled = True
+        btn_start.label.set_text("Logging: ON")
+        btn_start.color = "lightgreen"
+        fig.canvas.draw_idle()
+    except Exception as e:
+        print(f"[ERROR] Could not open file: {e}")
+        csv_file = None
+        csv_writer = None
+        return
 
 def stop_logging(event):
     global logging_enabled, csv_file, csv_writer
-    if not logging_enabled:
-        return
+    print("[DEBUG] Stop button clicked")
+    
+    # Always stop logging when button is pressed
     logging_enabled = False
+    
+    # Reset button states
     btn_start.label.set_text("Start Logging")
     btn_start.color = "0.85"
     fig.canvas.draw_idle()
+    
+    # Close and cleanup CSV file
     if csv_file:
         with log_lock:
             try:
                 csv_file.flush()
                 csv_file.close()
                 print("[INFO] Logging stopped and file closed.")
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[ERROR] Error closing file: {e}")
         csv_file = None
         csv_writer = None
+    else:
+        print("[INFO] Logging stopped (no file was open)")
 
 # Buttons
 ax_start = plt.axes([0.7, 0.02, 0.1, 0.05])
@@ -178,25 +137,26 @@ def serial_worker():
             raw_vals = list(map(int, parts))
             caps = [raw_to_capacitance(r) for r in raw_vals]
 
-            # update buffers
-            for i in range(4):
-                ch[i].append(caps[i])
-                ch[i].popleft()
-
+            # update buffers (only once)
             now = time.time()
             for i in range(4):
                 ch[i].append(caps[i])
                 ch[i].popleft()
-                time_buffer.append(now)
+            time_buffer.append(now)
 
             # logging
-            if logging_enabled and csv_writer:
-                timestamp = time.time() - start_time
+            if logging_enabled and csv_writer and csv_file:
+                timestamp = now - start_time
                 with log_lock:
-                    csv_writer.writerow([timestamp] + caps)
-                    csv_file.flush()
-        except Exception:
-            # silent; could log if debugging
+                    try:
+                        csv_writer.writerow([timestamp] + caps)
+                        csv_file.flush()
+                        print(f"[DEBUG] Wrote data: {timestamp:.2f}s, {caps[0]:.2f}pF")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to write data: {e}")
+                        logging_enabled = False
+        except Exception as e:
+            print(f"Serial error: {e}")
             continue
 
 # Start serial thread
