@@ -27,13 +27,13 @@ ser = serial.Serial("COM8", 115200, timeout=1)
 
 buffer_len = 100
 start_time = time.time()
+time_buffer = deque([start_time - (buffer_len - i) * 0.1 for i in range(buffer_len)], maxlen=buffer_len)
 ch = [deque([0.0] * buffer_len) for _ in range(8)]
-lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(8)]
 
 # Plot setup
 plt.ion()
 fig, ax = plt.subplots()
-lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(4)]
+lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(8)]
 ax.legend()
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Capacitance (pF)")
@@ -175,7 +175,7 @@ try:
     while True:
         # update plot data
         t_vals = [t - start_time for t in time_buffer]  # seconds since start
-        for i in range(4):
+        for i in range(8):
             lines[i].set_data(t_vals, list(ch[i]))
         ax.relim()
         ax.autoscale_view()

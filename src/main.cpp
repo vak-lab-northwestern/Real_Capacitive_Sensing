@@ -58,8 +58,8 @@ void loop() {
     if (i < CHAN_COUNT - 1) Serial.print(", ");
   }
   Serial.println();
-  
+
   /* Sample Rate */
-  delay(1000); 
+  delay(100); 
 }
 
