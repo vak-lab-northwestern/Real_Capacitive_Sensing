@@ -9,8 +9,9 @@ import matplotlib.pyplot as plt
 times = []
 channels = [[] for _ in range(4)]
 sensing_units = [[] for _ in range(4)]
+csvfilename = "CLEAN2.csv"
 
-with open('CLEAN2.csv', 'r') as infile:
+with open(csvfilename, 'r') as infile:
     csvreader = csv.reader(infile)
     next(csvreader)  # skip header
     for row in csvreader:

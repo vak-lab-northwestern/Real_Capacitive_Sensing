@@ -26,9 +26,9 @@ def raw_to_capacitance(raw):
 ser = serial.Serial("COM8", 115200, timeout=1)
 
 buffer_len = 100
-ch = [deque([0.0] * buffer_len) for _ in range(4)]
 start_time = time.time()
-time_buffer = deque([start_time - (buffer_len - i) * 0.1 for i in range(buffer_len)], maxlen=buffer_len)
+ch = [deque([0.0] * buffer_len) for _ in range(8)]
+lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(8)]
 
 # Plot setup
 plt.ion()
@@ -79,7 +79,7 @@ def start_logging(event):
     try:
         csv_file = open(fname, mode="w", newline="")
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(["timestamp", "CH0_pF", "CH1_pF", "CH2_pF", "CH3_pF"])
+        csv_writer.writerow(["timestamp"] + [f"CH{i}_pF" for i in range(8)])
         csv_file.flush()
         print(f"[INFO] Logging started to {fname}")
     except Exception as e:
@@ -139,14 +139,15 @@ def serial_worker():
             if not raw_line:
                 continue
             parts = raw_line.split(",")
-            if len(parts) != 4:
+            if len(parts) != 8:
                 continue
+
             raw_vals = list(map(int, parts))
             caps = [raw_to_capacitance(r) for r in raw_vals]
 
             # update buffers (only once)
             now = time.time()
-            for i in range(4):
+            for i in range(8):
                 ch[i].append(caps[i])
                 ch[i].popleft()
             time_buffer.append(now)
