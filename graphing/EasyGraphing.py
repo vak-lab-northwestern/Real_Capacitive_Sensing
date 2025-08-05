@@ -23,7 +23,7 @@ def raw_to_capacitance(raw):
     return cap_F * 1e12  # picofarads
 
 # Serial setup (adjust port as needed)
-ser = serial.Serial("/dev/tty.usbmodem2101", 115200, timeout=1)
+ser = serial.Serial("COM8", 115200, timeout=1)
 
 buffer_len = 100
 ch = [deque([0.0] * buffer_len) for _ in range(4)]
@@ -63,53 +63,36 @@ def choose_output_file():
 def start_logging(event):
     global logging_enabled, csv_file, csv_writer
     print("[DEBUG] Start button clicked")
-    
+
     if logging_enabled:
         print("[DEBUG] Logging already enabled, ignoring click")
         return
-    
-    # Use fixed filename instead of file dialog
-    fname = "20250801_x4_yarn_capacitance.csv"
+
+    # Set filename (use a fixed one or prompt user)
+    fname = None  # Replace with your fixed path if needed, e.g., "log.csv"
+    if not fname:
+        fname = choose_output_file()
+        if not fname:
+            print("[INFO] Logging cancelled (no file selected).")
+            return
+
     try:
         csv_file = open(fname, mode="w", newline="")
         csv_writer = csv.writer(csv_file)
-        header = ["timestamp", "CH0_pF", "CH1_pF", "CH2_pF", "CH3_pF"]
-        csv_writer.writerow(header)
+        csv_writer.writerow(["timestamp", "CH0_pF", "CH1_pF", "CH2_pF", "CH3_pF"])
         csv_file.flush()
         print(f"[INFO] Logging started to {fname}")
-        logging_enabled = True
-        btn_start.label.set_text("Logging: ON")
-        btn_start.color = "lightgreen"
-        fig.canvas.draw_idle()
     except Exception as e:
         print(f"[ERROR] Could not open file: {e}")
         csv_file = None
         csv_writer = None
         return
-<<<<<<< HEAD
-    if csv_file is None:
-        fname = choose_output_file()
-        if not fname:
-            print("Logging cancelled (no file selected).")  
-            return
-        try:
-            csv_file = open(fname, mode="w", newline="")
-            csv_writer = csv.writer(csv_file)
-            header = ["timestamp", "CH0_pF", "CH1_pF", "CH2_pF", "CH3_pF"]
-            csv_writer.writerow(header)
-            csv_file.flush()
-            print(f"[INFO] Logging started to {fname}")
-        except Exception as e:
-            print(f"[ERROR] Could not open file: {e}")
-            csv_file = None
-            return
+
     logging_enabled = True
     btn_start.label.set_text("Logging: ON")
     btn_start.color = "lightgreen"
     fig.canvas.draw_idle()
-=======
->>>>>>> ab0c585cf54b202eedc1d5a7eee7a13f4d1cb32a
-
+    
 def stop_logging(event):
     global logging_enabled, csv_file, csv_writer
     print("[DEBUG] Stop button clicked")
