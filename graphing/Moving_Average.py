@@ -7,9 +7,11 @@ import matplotlib.pyplot as plt
 # data[channel][time_bin] = list of measurements
 data = [defaultdict(list) for _ in range(4)]
 
-start_time = 58
+start_time = 0
+file_name = 'FDC2214_Distance_Test_2.csv'
+channel_count = 1
 
-with open('FDC2214DATA4.csv', 'r') as file:
+with open(file_name, 'r') as file:
     
     csvreader = csv.reader(file)
     next(csvreader)  
@@ -18,15 +20,15 @@ with open('FDC2214DATA4.csv', 'r') as file:
             time = float(row[0])
             if time > start_time:
                 time_bin = math.floor(time)
-                for ch in range(4):
+                for ch in range(channel_count):
                     measurement = float(row[ch + 1])
                     data[ch][time_bin].append(measurement)
         except (ValueError, IndexError):
             continue
 
-filtered_averages = [{} for _ in range(4)]
+filtered_averages = [{} for _ in range(channel_count)]
 
-for ch in range(4):
+for ch in range(channel_count):
     for time_bin, values in data[ch].items():
         if len(values) < 2:
             continue
@@ -46,7 +48,7 @@ with open('CLEAN4.csv', 'w', newline='') as outfile:
     all_time_bins = sorted(set().union(*[fa.keys() for fa in filtered_averages]))
     for time_bin in all_time_bins:
         row = [time_bin]
-        for ch in range(4):
+        for ch in range(channel_count):
             row.append(filtered_averages[ch].get(time_bin, ''))
         csvwriter.writerow(row)
 

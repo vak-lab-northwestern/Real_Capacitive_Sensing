@@ -33,7 +33,7 @@ void setup() {
 void loop() {
   /* Storing data into list but not necessary since it is not being processed here */
   unsigned long capa0[CHAN_COUNT]; 
-
+  
   /* Continuous reading of 28 bit data */
   for (int i = 0; i < CHAN_COUNT; i++){ 
     capa0[i]= capsense0.getReading28(i);//  
@@ -48,4 +48,5 @@ void loop() {
   /* Sample Rate */
   delay(100); 
 }
+
 
