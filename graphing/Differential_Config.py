@@ -145,7 +145,7 @@ def serial_worker():
             if not raw_line:
                 continue
             parts = raw_line.split(",")
-            if len(parts) != 2:
+            if len(parts) != channel_num:
                 print(f"[DEBUG] Skipping line: expecting {channel_num} parts, got {len(parts)}")
                 continue
 
