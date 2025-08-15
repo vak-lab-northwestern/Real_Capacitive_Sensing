@@ -62,7 +62,7 @@ ax.set_ylabel("Δ Capacitance (pF)")
 ax.set_title("Live Δ Capacitance from 8 Channel") # Manually Update :{
 ax.grid(True)
 
-# Logging state
+# Logging state 
 logging_enabled = False
 csv_file = None
 csv_writer = None

@@ -40,7 +40,7 @@ ax.set_ylabel("Capacitance (pF)")
 ax.set_title("Live Capacitance from FDC2214 Channels")
 ax.grid(True)
 
-# Logging state (shared)
+# Logging state 
 logging_enabled = False
 csv_file = None
 csv_writer = None
