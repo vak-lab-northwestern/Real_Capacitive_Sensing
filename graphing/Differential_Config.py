@@ -12,7 +12,7 @@ from tkinter import filedialog
 # Settings
 serialPort = "COM8"
 baudrate = 115200
-channel_num = 8
+channel_num = 1
 
 #  Calibration constants 
 ref_clock = 40e6  # Hz
@@ -145,9 +145,9 @@ def serial_worker():
             if not raw_line:
                 continue
             parts = raw_line.split(",")
-            if len(parts) != channel_num:
-                print(f"[DEBUG] Skipping line: expecting {channel_num} parts, got {len(parts)}")
-                continue
+            # if len(parts) != channel_num:
+            #     print(f"[DEBUG] Skipping line: expecting {channel_num} parts, got {len(parts)}")
+            #     continue
 
             raw_vals = list(map(int, parts))
             caps = [raw_to_sensor_capacitance(r) for r in raw_vals]
