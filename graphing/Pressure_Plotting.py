@@ -3,7 +3,6 @@ from collections import defaultdict
 import math
 import statistics
 import matplotlib.pyplot as plt
-# Create 4 sensing units by multiplying channels as specified
 
 # Read the cleaned CSV
 times = []

@@ -12,12 +12,12 @@ os.makedirs(plotfolder, exist_ok=True)
 
 # List all your possible poses
 pose_files = [
-    "Peace_Sign.csv",
-    "Pointer.csv",
-    "Index_Pinch.csv",
-    "Middle_Pinch.csv",
-    "Fingers_Crossed.csv",
-    "Fingers_Together.csv",
+    "Peace_Sign_2.csv",
+    "Pointer_2.csv",
+    "Index_Pinch_2.csv",
+    "Middle_Pinch_2.csv",
+    "Fingers_Crossed_2.csv",
+    "Fingers_Together_2.csv",
     "Full_Stretch.csv",
     "Full_Clasp.csv",
 ]
