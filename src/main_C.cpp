@@ -13,40 +13,64 @@ FDC2214 capsense0(FDC2214_I2C_ADDR_0);
 
 // Variable definition
 #define CHAN_COUNT 2
+#define Button 4
+#define Num_1 6   // A (LSB)
+#define Num_2 7   // B
+#define Num_3 8   // C (MSB)
+
+int muxState = 0;  
 
 void setup() {
-  
-  /* Initializing I2C communication protocal */
   Wire.begin();
-  
-  /* Configuring baud rate */
+
   Serial.begin(9600);
+  pinMode(Num_1, OUTPUT);
+  pinMode(Num_2, OUTPUT);
+  pinMode(Num_3, OUTPUT);
+  pinMode(Button, INPUT_PULLUP);
+
+  digitalWrite(Num_1, LOW);
+  digitalWrite(Num_2, LOW);
+  digitalWrite(Num_3, LOW);
   
-  /* Setup first two channels, autoscan with 2 channels, deglitch at 10MHz, external oscillator */
   bool capO = capsense0.begin(0x3, 0x4, 0x5, false); 
 
   /* Checking if sensor is being read on the same communication bus */
   if (capO) Serial.println("Sensor OK");  
   else Serial.println("Sensor Fail");  
+  
+ }
+
+void setMux(int state) {
+  // Convert counter into binary CBA (LSB = A = Num_1)
+  digitalWrite(Num_1, state & 0x01);  // A
+  digitalWrite(Num_2, (state >> 1) & 0x01);  // B
+  digitalWrite(Num_3, (state >> 2) & 0x01);  // C
 }
 
 void loop() {
-  /* Storing data into list but not necessary since it is not being processed here */
   unsigned long capa0[CHAN_COUNT]; 
-  
-  /* Continuous reading of 28 bit data */
+
   for (int i = 0; i < CHAN_COUNT; i++){ 
-    capa0[i]= capsense0.getReading28(i);//  
+    capa0[i]= capsense0.getReading28(i);
   }
 
-  /* Printing results for Chip 0 (0x2A) in Python readable format */
   for (int i = 0; i < CHAN_COUNT; i++) {
     Serial.print(capa0[i]);
     if (i < CHAN_COUNT - 1) Serial.print(", ");
   }
   Serial.println();
-  /* Sample Rate */
-  delay(100); 
+
+
+  if (digitalRead(Button) == LOW) {
+    muxState = (muxState + 1) % 8;   // cycle through 0–2
+    setMux(muxState);
+
+    // Serial.print("Mux State: ");
+    // Serial.println(muxState);
+
+    delay(200);  // debounce delay
+  }
+  delay(100);
 }
-
-
+ 

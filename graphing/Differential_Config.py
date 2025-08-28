@@ -8,11 +8,14 @@ import time
 import threading
 import tkinter as tk
 from tkinter import filedialog
+from cmcrameri import cm
+
 
 # Settings
 serialPort = "COM8"
 baudrate = 115200
 channel_num = 1
+channel_title = "CH1"
 
 #  Calibration constants 
 ref_clock = 40e6  # Hz
@@ -42,6 +45,12 @@ def raw_to_sensor_capacitance(raw):
     c_sense = c_total - C_FIXED
     return c_sense * 1e12  # pF
 
+for i in range(channel_num):
+    if channel_num == 1:
+        channel_title = f"Live Capacitance from {i+1} Channel"
+    else:
+        channel_title = f"Live Capacitance from {i+1} Channels"
+
 
 # Serial setup
 ser = serial.Serial(serialPort, baudrate=baudrate, timeout=1)
@@ -55,11 +64,11 @@ ch = [deque([0.0] * buffer_len, maxlen=buffer_len) for _ in range(channel_num)]
 # Plot setup
 plt.ion()
 fig, ax = plt.subplots()
-lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(channel_num)]
+lines = [ax.plot(list(ch[i]), label=f"CH{i+1}")[0] for i in range(channel_num)]
 ax.legend()
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Δ Capacitance (pF)")
-ax.set_title("Live Δ Capacitance from 8 Channel") # Manually Update :{
+ax.set_title(channel_title) 
 ax.grid(True)
 
 # Logging state 

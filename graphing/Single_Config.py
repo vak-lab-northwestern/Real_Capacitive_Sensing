@@ -13,8 +13,9 @@ from tkinter import filedialog
 # FDC2214 constants
 ref_clock = 40e6  # Hz
 scale_factor = ref_clock / (2 ** 28)
-inductance = 180e-6  # H
-
+inductance = 18e-6  # H
+channel_num = 1
+  
 def raw_to_capacitance(raw):
     freq = raw * scale_factor
     if freq <= 0:
@@ -23,17 +24,17 @@ def raw_to_capacitance(raw):
     return cap_F * 1e12  # picofarads
 
 # Serial setup (adjust port as needed)
-ser = serial.Serial("COM8", 115200, timeout=1)
+ser = serial.Serial("COM9", 9600, timeout=1)
 
 buffer_len = 100
 start_time = time.time()
 time_buffer = deque([start_time - (buffer_len - i) * 0.1 for i in range(buffer_len)], maxlen=buffer_len)
-ch = [deque([0.0] * buffer_len) for _ in range(8)]
+ch = [deque([0.0] * buffer_len) for _ in range(channel_num)]
 
 # Plot setup
 plt.ion()
 fig, ax = plt.subplots()
-lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(8)]
+lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(channel_num)]
 ax.legend()
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Capacitance (pF)")
@@ -139,7 +140,7 @@ def serial_worker():
             if not raw_line:
                 continue
             parts = raw_line.split(",")
-            if len(parts) != 8:
+            if len(parts) != 2:
                 continue
 
             raw_vals = list(map(int, parts))
@@ -147,7 +148,7 @@ def serial_worker():
 
             # update buffers (only once)
             now = time.time()
-            for i in range(8):
+            for i in range(channel_num):
                 ch[i].append(caps[i])
                 ch[i].popleft()
             time_buffer.append(now)
@@ -175,7 +176,7 @@ try:
     while True:
         # update plot data
         t_vals = [t - start_time for t in time_buffer]  # seconds since start
-        for i in range(8):
+        for i in range(channel_num):
             lines[i].set_data(t_vals, list(ch[i]))
         ax.relim()
         ax.autoscale_view()

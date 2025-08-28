@@ -10,7 +10,7 @@ from cmcrameri import cm
 csvfolder = "data"
 plotfolder = "poses"
 
-pose_files = ["test8.csv"]
+pose_files = ["Green_Silk_Blend_W_Stainless_Steel_Cap_Pressure_Test_1hz.csv"]
 
 channels_to_plot = [1]   
 
@@ -71,16 +71,16 @@ for csvfilename in pose_files:
         )
 
 plt.xlim(0, 110)
-plt.ylim(300, 400)
+plt.ylim(0, 500)
 plt.xlabel("Time (s)")
 plt.ylabel("Differential Capacitance (pF)")
-plt.title("5 Finger Poses (Averaged Cap vs Time)")
+plt.title("5 Finger Pose (Averaged Cap vs Time)")
 
 # Vertical dotted lines every 10s
 for x in range(12, 110, 10):
     plt.axvline(x=x, color="gray", linestyle="--", linewidth=1, alpha=0.6)
 
-plt.legend()
+plt.legend(loc= "upper left")
 plt.grid(False)
 plt.tight_layout()
 plt.show()
