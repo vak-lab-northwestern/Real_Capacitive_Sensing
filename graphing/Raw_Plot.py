@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from cmcrameri import cm
 
 csvfolder = "data"
-pose_files = ["20250911_node3_node4_v2.csv"]
+pose_files = ["differential_capacitance_20250911_174036.csv"]
 
 
 channels_to_plot = [3]   # column indexes to plot (0 = time, 1 = first channel, etc.)
@@ -54,6 +54,7 @@ for csvfilename in pose_files:
         )
 
 # plt.xlim(0,120)
+plt.ylim(100, 600)
 plt.xlabel("Time (s)")
 plt.ylabel("Capacitance (pF)")
 plt.title("8:1 MUX Single-Ended Capacitance Readings")
