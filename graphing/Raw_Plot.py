@@ -2,10 +2,10 @@ import csv
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from cmcrameri import cm
+#from cmcrameri import cm
 
 csvfolder = "data"
-pose_files = ["MUX_Single_Thread_1hz_Taps_Test1.csv"]
+pose_files = ["differential_capacitance_20250911_174036.csv"]
 
 #pose_files = ["Green_Thread_Cap_Pressure_Test_1hz.csv"] 
 #pose_files = ["Red_Ployamide_Cap_Pressure_Test_1hz.csv"]
@@ -13,15 +13,16 @@ pose_files = ["MUX_Single_Thread_1hz_Taps_Test1.csv"]
 
 channels_to_plot = [1]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
-colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
+#colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
 plt.figure(figsize=(10, 6))
 
 for csvfilename in pose_files:
-    file_path = os.path.join(csvfolder, csvfilename)
-    if not os.path.exists(file_path):
-        print(f"⚠️ Missing file: {csvfilename}")
-        continue
+    file_path = "data/differential_capacitance_20250911_174036.csv"
+    # file_path = os.path.join(csvfolder, csvfilename)
+    # if not os.path.exists(file_path):
+    #     print(f"⚠️ Missing file: {csvfilename}")
+    #     continue
 
     # Load raw data
     times = []
@@ -52,7 +53,7 @@ for csvfilename in pose_files:
         plt.plot(
             times, channel_data[ch],
             label=f"CH{ch}",
-            color=colors[idx],
+            #color=colors[idx],
             linewidth=1.2
         )
 
