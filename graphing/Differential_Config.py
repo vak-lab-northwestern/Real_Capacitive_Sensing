@@ -14,12 +14,12 @@ from cmcrameri import cm
 # Settings
 serialPort = "COM8"
 baudrate = 115200
-channel_num = 1
-channel_title = "CH1"
+channel_num = 4
+channel_title = "Live Capacitance from 4 Channels" 
 
 #  Calibration constants 
 ref_clock = 40e6  # Hz
-scale_factor = ref_clock / (2 ** 28)
+scale_factor = ref_clock / (2 ** 28)   
 inductance = 18e-6  # H (your actual coil)
 C_FIXED = 14.63e-12      # Short the two wires to find C_Fixed
 

@@ -5,13 +5,10 @@ import matplotlib.pyplot as plt
 from cmcrameri import cm
 
 csvfolder = "data"
-pose_files = ["MUX_Single_Thread_1hz_Taps_Test1.csv"]
+pose_files = ["20250911_node3_node4_v2.csv"]
 
-#pose_files = ["Green_Thread_Cap_Pressure_Test_1hz.csv"] 
-#pose_files = ["Red_Ployamide_Cap_Pressure_Test_1hz.csv"]
-#pose_files = ["Silver_Polyamide_Cap_Pressure_Test_1hz.csv"]
 
-channels_to_plot = [1]   # column indexes to plot (0 = time, 1 = first channel, etc.)
+channels_to_plot = [3]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
 colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
@@ -56,6 +53,7 @@ for csvfilename in pose_files:
             linewidth=1.2
         )
 
+# plt.xlim(0,120)
 plt.xlabel("Time (s)")
 plt.ylabel("Capacitance (pF)")
 plt.title("8:1 MUX Single-Ended Capacitance Readings")
