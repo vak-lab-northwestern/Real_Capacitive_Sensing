@@ -4,11 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cmcrameri import cm
 
-csvfolder = "data"
-pose_files = ["differential_capacitance_20250911_174036.csv"]
+csvfolder = "graphing"
+pose_files = ["differential_capacitance_20250911_181939.csv"]
 
 
-channels_to_plot = [3]   # column indexes to plot (0 = time, 1 = first channel, etc.)
+channels_to_plot = [3,4]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
 colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
@@ -54,7 +54,7 @@ for csvfilename in pose_files:
         )
 
 # plt.xlim(0,120)
-plt.ylim(100, 600)
+# plt.ylim(100, 600)
 plt.xlabel("Time (s)")
 plt.ylabel("Capacitance (pF)")
 plt.title("8:1 MUX Single-Ended Capacitance Readings")
