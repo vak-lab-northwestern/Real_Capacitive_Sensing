@@ -33,7 +33,7 @@ for fname in os.listdir(csvfolder):
     if fname in exclude_files: 
         print(f"⚠️ Skipping excluded file: {fname}")
         continue
-    base = "_".join(fname.split("_")[:-1])  # condition = everything except last token
+    base = "_".join(fname.split("_")[:-1])
     conditions.setdefault(base, []).append(fname)
 
 # --- Collect summary results ---
@@ -50,7 +50,7 @@ for cond, files in conditions.items():
 
         with open(filepath) as infile:
             reader = csv.reader(infile)
-            next(reader, None)  # skip header
+            next(reader, None)
             for row in reader:
                 try:
                     t = float(row[0])
@@ -64,7 +64,7 @@ for cond, files in conditions.items():
             continue
 
         t0 = times[0]
-        times = np.array(times) - t0  # normalize start to 0
+        times = np.array(times) - t0
         vals = np.array(vals)
         all_repeats.append((times, vals))
 
@@ -82,10 +82,9 @@ for cond, files in conditions.items():
     aligned_vals = []
     for t, v in all_repeats:
         v_interp = np.interp(common_t, t, v)
-        # ensure window length is valid for savgol_filter (odd and <= len)
         wl = min(21, len(v_interp) if len(v_interp) % 2 == 1 else len(v_interp)-1)
-        wl = max(3, wl)  # minimum reasonable window
-        v_smooth = signal.savgol_filter(v_interp, wl, 1)  # Savitzky–Golay
+        wl = max(3, wl)
+        v_smooth = signal.savgol_filter(v_interp, wl, 1)
         aligned_vals.append(v_smooth)
     aligned_vals = np.vstack(aligned_vals)
 
@@ -98,7 +97,7 @@ for cond, files in conditions.items():
     dt = np.mean(np.diff(common_t))
     block_samples = int(block_length / dt)
     if block_samples <= 0:
-        block_samples = 1  # safety
+        block_samples = 1
 
     # Break into blocks
     blocks = []
@@ -118,7 +117,7 @@ for cond, files in conditions.items():
 
     # --- Per-pose stats ---
     all_pose_vals = []
-    for i in range(1, total_blocks, 2):  # odd blocks = poses
+    for i in range(1, total_blocks, 2):
         block = delta_vals[:, i * block_samples:(i + 1) * block_samples]
         if block.size == 0:
             continue
@@ -140,10 +139,10 @@ for cond, files in conditions.items():
     ax.fill_between(common_t, min_trace, max_trace,
                     color="blue", alpha=0.2, label="min–max")
 
-    # --- Y-lim span = 700 (keeps consistent vertical span) ---
+    # --- Y-lim span = 800 (more space below) ---
     ymin, ymax = mean_trace.min(), mean_trace.max()
     center = (ymin + ymax) / 2
-    ax.set_ylim(center - 400, center + 400)
+    ax.set_ylim(center - 500, center + 300)
 
     # --- Gray vertical lines every 10s ---
     for x in range(0, 111, 10):
@@ -159,19 +158,19 @@ for cond, files in conditions.items():
     plt.savefig(outfile, dpi=300)
     plt.close()
 
-# --- Save summary table (pose-level) ---
+# --- Save summary table ---
 summary_df = pd.DataFrame(summary_rows, columns=["Condition", "Pose", "Mean ΔC (pF)", "Std ΔC (pF)"])
 summary_file = os.path.join(plotfolder, "summary.csv")
 summary_df.to_csv(summary_file, index=False)
 print(f"\n✅ Summary saved to {summary_file}")
 
-# --- Post-process: Compute SNR summary ---
+# --- Post-process: Compute SNR summary (absolute SNR) ---
 df = pd.read_csv(summary_file)
 df_numeric = df[pd.to_numeric(df["Pose"], errors="coerce").notna()].copy()
 df_numeric["Pose"] = df_numeric["Pose"].astype(int)
 
-# Compute SNR per pose
-df_numeric["SNR"] = df_numeric["Mean ΔC (pF)"] / df_numeric["Std ΔC (pF)"]
+# Compute absolute SNR per pose
+df_numeric["SNR"] = (df_numeric["Mean ΔC (pF)"].abs()) / df_numeric["Std ΔC (pF)"]
 
 rows = []
 for cond, group in df_numeric.groupby("Condition"):
