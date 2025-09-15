@@ -142,7 +142,7 @@ for cond, files in conditions.items():
     # --- Y-lim span = 800 (more space below) ---
     ymin, ymax = mean_trace.min(), mean_trace.max()
     center = (ymin + ymax) / 2
-    ax.set_ylim(center - 500, center + 300)
+    ax.set_ylim(center - 400, center + 400)
 
     # --- Gray vertical lines every 10s ---
     for x in range(0, 111, 10):
