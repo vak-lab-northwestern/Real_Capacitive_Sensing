@@ -7,7 +7,7 @@ from scipy import signal
 
 # --- Folders ---
 csvfolder = "diff_pairs"
-plotfolder = "diff_pairs_processed_2"
+plotfolder = "diff_pairs_processed"
 os.makedirs(plotfolder, exist_ok=True)
 
 channels_to_plot = [3]  # adjust for your channel
@@ -17,7 +17,6 @@ block_length = 10  # seconds per rest/pose segment
 n_poses = 5        # number of poses
 total_blocks = n_poses * 2 + 1  # rest + alternating rest/pose
 rest_baseline_block = 0  # index of first block is baseline rest
-compute_overall_std = True  # toggle for computing overall std
 
 # --- Exclude bad files ---
 exclude_files = {
@@ -115,23 +114,20 @@ for cond, files in conditions.items():
     min_trace = delta_vals.min(axis=0)
     max_trace = delta_vals.max(axis=0)
 
-    # --- Per-pose stats ---
-    all_pose_vals = []
+    # --- Per-pose stats using max value ---
     for i in range(1, total_blocks, 2):
         block = delta_vals[:, i * block_samples:(i + 1) * block_samples]
         if block.size == 0:
             continue
-        pose_mean = block.mean()
-        pose_std = block.std()
         pose_num = (i + 1) // 2
-        summary_rows.append([cond, pose_num, pose_mean, pose_std])
-        all_pose_vals.append(block.flatten())
 
-    # --- Compute overall std across all pose blocks ---
-    if compute_overall_std and all_pose_vals:
-        all_pose_vals = np.concatenate(all_pose_vals)
-        overall_pose_std = all_pose_vals.std()
-        summary_rows.append([cond, "Overall", np.nan, overall_pose_std])
+        # Find max per repeat inside this pose block
+        max_per_repeat = block.max(axis=1)  # maximum value per repeat
+        pose_max = max_per_repeat.mean()    # average max across repeats
+        pose_std = max_per_repeat.std()     # std across repeats
+        pose_snr = abs(pose_max) / pose_std if pose_std > 0 else np.nan
+
+        summary_rows.append([cond, pose_num, pose_max, pose_std, pose_snr])
 
     # --- Plot ---
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -159,21 +155,15 @@ for cond, files in conditions.items():
     plt.close()
 
 # --- Save summary table ---
-summary_df = pd.DataFrame(summary_rows, columns=["Condition", "Pose", "Mean ΔC (pF)", "Std ΔC (pF)"])
+summary_df = pd.DataFrame(summary_rows, 
+                          columns=["Condition", "Pose", "Max ΔC (pF)", "Std ΔC (pF)", "SNR"])
 summary_file = os.path.join(plotfolder, "summary.csv")
 summary_df.to_csv(summary_file, index=False)
 print(f"\n✅ Summary saved to {summary_file}")
 
-# --- Post-process: Compute SNR summary (absolute SNR) ---
-df = pd.read_csv(summary_file)
-df_numeric = df[pd.to_numeric(df["Pose"], errors="coerce").notna()].copy()
-df_numeric["Pose"] = df_numeric["Pose"].astype(int)
-
-# Compute absolute SNR per pose
-df_numeric["SNR"] = (df_numeric["Mean ΔC (pF)"].abs()) / df_numeric["Std ΔC (pF)"]
-
+# --- Post-process: SNR summary ---
 rows = []
-for cond, group in df_numeric.groupby("Condition"):
+for cond, group in summary_df.groupby("Condition"):
     avg_snr = group["SNR"].mean()
     lowest_snr = group.loc[group["SNR"].idxmin(), ["Pose", "SNR"]]
     highest_std = group.loc[group["Std ΔC (pF)"].idxmax(), ["Pose", "Std ΔC (pF)"]]

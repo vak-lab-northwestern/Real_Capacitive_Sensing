@@ -4,18 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cmcrameri import cm
 
-csvfolder = "diff_pairs"
-data = ["20250911_node1_node4_v1.csv", "20250911_node1_node4_v2.csv", "20250911_node1_node4_v3c.csv",
-        "20250911_node1_node5_v1.csv", "20250911_node1_node5_v2.csv", "20250911_node1_node5_v3.csv",
-        "20250911_node1_node6_v1.csv", "20250911_node1_node6_v2.csv", "20250911_node1_node6_v3.csv",
-        "20250911_node2_node4_v1.csv", "20250911_node2_node4_v2.csv", "20250911_node2_node4_v3.csv",
-        "20250911_node2_node5_v1.csv", "20250911_node2_node5_v2.csv", "20250911_node2_node5_v3.csv",
-        "20250911_node2_node6_v1.csv", "20250911_node2_node6_v2.csv", "20250911_node2_node6_v3.csv",
-        "20250911_node3_node4_v1.csv", "20250911_node3_node4_v2.csv", "20250911_node3_node4_v3.csv",
-        "20250911_node3_node5_v1.csv", "20250911_node3_node5_v2.csv", "20250911_node3_node5_v3.csv",
-        "20250911_node3_node6_v1.csv", "20250911_node3_node6_v2.csv", "20250911_node3_node6_v3.csv"]
+csvfolder = "data"
+data = ["09172025_CH1_CH2_node_2.csv"]
 
-plotfolder = "diff_pairs"
 
 channels_to_plot = [3]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
@@ -63,7 +54,7 @@ for csvfilename in data:
             linewidth=1.2
         )
 
-    plt.xlim(0,120)
+    
     plt.xlabel("Time (s)")
     plt.ylabel("Capacitance (pF)")
     title_name = "Raw Data from Differential Pairs"
@@ -71,9 +62,10 @@ for csvfilename in data:
     plt.legend(loc="upper left")
     plt.grid(False)
     plt.tight_layout()
-    outfile = os.path.join(plotfolder, f"{channel_name}.png")
-    plt.savefig(outfile, dpi=300)
-    plt.close()
+    plt.show()
+    # outfile = os.path.join(plotfolder, f"{channel_name}.png")
+    # plt.savefig(outfile, dpi=300)
+    # plt.close()
 
 # plt.xlim(0,120)
 # plt.ylim(100, 600)
