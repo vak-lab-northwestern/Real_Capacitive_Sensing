@@ -84,7 +84,7 @@ def start_logging(event):
     
     # Use fixed filename to avoid Tkinter conflicts
     timestamp = time.strftime("%Y%m%d_%H%M%S")
-    fname = f"differential_capacitance_{timestamp}.csv"
+    fname = f"differential_capacitance_{timestamp}_dipcoated_nozzle_node7.csv"
     
     try:
         csv_file = open(fname, mode="w", newline="")
