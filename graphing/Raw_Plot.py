@@ -4,22 +4,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cmcrameri import cm
 
-csvfolder = "diff_pairs"
-data = ["20250911_node1_node4_v1.csv", "20250911_node1_node4_v2.csv", "20250911_node1_node4_v3c.csv",
-        "20250911_node1_node5_v1.csv", "20250911_node1_node5_v2.csv", "20250911_node1_node5_v3.csv",
-        "20250911_node1_node6_v1.csv", "20250911_node1_node6_v2.csv", "20250911_node1_node6_v3.csv",
-        "20250911_node2_node4_v1.csv", "20250911_node2_node4_v2.csv", "20250911_node2_node4_v3.csv",
-        "20250911_node2_node5_v1.csv", "20250911_node2_node5_v2.csv", "20250911_node2_node5_v3.csv",
-        "20250911_node2_node6_v1.csv", "20250911_node2_node6_v2.csv", "20250911_node2_node6_v3.csv",
-        "20250911_node3_node4_v1.csv", "20250911_node3_node4_v2.csv", "20250911_node3_node4_v3.csv",
-        "20250911_node3_node5_v1.csv", "20250911_node3_node5_v2.csv", "20250911_node3_node5_v3.csv",
-        "20250911_node3_node6_v1.csv", "20250911_node3_node6_v2.csv", "20250911_node3_node6_v3.csv"]
+csvfolder = "data"
+data = ["09212025_node2_node_5_node1_node6_Cath_test6.csv"]
+plotfolder = "raw_plots"
 
-plotfolder = "diff_pairs"
 
-channels_to_plot = [3]   # column indexes to plot (0 = time, 1 = first channel, etc.)
+channels_to_plot = [1,4]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
-colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
+# colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
 
 
@@ -59,11 +51,10 @@ for csvfilename in data:
         plt.plot(
             times, channel_data[ch],
             label=f"{channel_name}",
-            color=colors[idx],
             linewidth=1.2
         )
 
-    plt.xlim(0,120)
+    # plt.ylim(500,1500)
     plt.xlabel("Time (s)")
     plt.ylabel("Capacitance (pF)")
     title_name = "Raw Data from Differential Pairs"
@@ -71,9 +62,10 @@ for csvfilename in data:
     plt.legend(loc="upper left")
     plt.grid(False)
     plt.tight_layout()
-    outfile = os.path.join(plotfolder, f"{channel_name}.png")
-    plt.savefig(outfile, dpi=300)
-    plt.close()
+    plt.show()
+    # outfile = os.path.join(plotfolder, f"{channel_name}.png")
+    # plt.savefig(outfile, dpi=300)
+    # plt.close()
 
 # plt.xlim(0,120)
 # plt.ylim(100, 600)
