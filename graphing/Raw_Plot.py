@@ -4,12 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cmcrameri import cm
 
-csvfolder = "data"
-data = ["09212025_node2_node_5_node1_node6_Cath_test6.csv"]
+csvfolder = "single_tests"
+data = ["09282025_Single_Finger_Test3.csv"]
 plotfolder = "raw_plots"
 
 
-channels_to_plot = [1,4]   # column indexes to plot (0 = time, 1 = first channel, etc.)
+channels_to_plot = [1,2]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
 # colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
@@ -57,7 +57,7 @@ for csvfilename in data:
     # plt.ylim(500,1500)
     plt.xlabel("Time (s)")
     plt.ylabel("Capacitance (pF)")
-    title_name = "Raw Data from Differential Pairs"
+    title_name = "Raw Data from Singles"
     plt.title(title_name)
     plt.legend(loc="upper left")
     plt.grid(False)

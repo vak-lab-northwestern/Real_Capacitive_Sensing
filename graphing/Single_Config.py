@@ -14,7 +14,7 @@ from tkinter import filedialog
 ref_clock = 40e6  # Hz
 scale_factor = ref_clock / (2 ** 28)
 inductance = 18e-6  # H
-channel_num = 1
+channel_num = 8
   
 def raw_to_capacitance(raw):
     freq = raw * scale_factor
@@ -24,7 +24,7 @@ def raw_to_capacitance(raw):
     return cap_F * 1e12  # picofarads
 
 # Serial setup (adjust port as needed)
-ser = serial.Serial("COM9", 9600, timeout=1)
+ser = serial.Serial("COM8", 115200, timeout=1)
 
 buffer_len = 100
 start_time = time.time()
@@ -80,7 +80,7 @@ def start_logging(event):
     try:
         csv_file = open(fname, mode="w", newline="")
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(["timestamp"] + [f"CH{i}_pF" for i in range(8)])
+        csv_writer.writerow(["timestamp"] + [f"CH{i}_pF" for i in range(4)])
         csv_file.flush()
         print(f"[INFO] Logging started to {fname}")
     except Exception as e:
@@ -140,7 +140,7 @@ def serial_worker():
             if not raw_line:
                 continue
             parts = raw_line.split(",")
-            if len(parts) != 2:
+            if len(parts) != channel_num:
                 continue
 
             raw_vals = list(map(int, parts))

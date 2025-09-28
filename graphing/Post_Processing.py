@@ -7,12 +7,12 @@ from scipy import signal
 import matplotlib.lines as mlines  # ✅ for legend proxy
 
 # --- Folders ---
-csvfolder = "diff_pairs"
-plotfolder = "diff_pairs_processed"
+csvfolder = "single_tests"
+plotfolder = "single_plots"
 os.makedirs(plotfolder, exist_ok=True)
 
 # --- Parameters ---
-channels_to_plot = [3]       # adjust for your channel
+channels_to_plot = [1,2]       # adjust for your channel
 block_length = 10            # seconds per rest/pose segment
 n_poses = 5                  # number of poses
 total_blocks = n_poses * 2 + 1   # rest + alternating rest/pose
@@ -20,8 +20,8 @@ rest_baseline_block = 0          # index of first block is baseline rest
 
 # --- Exclude bad files ---
 exclude_files = {
-    "20250911_node1_node4_v3c.csv",
-    "20250911_node1_node5_v1.csv"
+    # "20250911_node1_node4_v3c.csv",
+    # "20250911_node1_node5_v1.csv"
 }
 
 # --- Group files by condition ---
