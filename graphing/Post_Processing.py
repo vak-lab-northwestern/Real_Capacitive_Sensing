@@ -7,12 +7,12 @@ from scipy import signal
 import matplotlib.lines as mlines  # ✅ for legend proxy
 
 # --- Folders ---
-csvfolder = "single_tests"
-plotfolder = "single_plots"
+csvfolder = "single_hand_tests"
+plotfolder = "single_hand_tests"
 os.makedirs(plotfolder, exist_ok=True)
 
 # --- Parameters ---
-channels_to_plot = [1,2]       # adjust for your channel
+channels_to_plot = [2]       # adjust for your channel
 block_length = 10            # seconds per rest/pose segment
 n_poses = 5                  # number of poses
 total_blocks = n_poses * 2 + 1   # rest + alternating rest/pose
