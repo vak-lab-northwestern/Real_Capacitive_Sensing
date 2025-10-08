@@ -24,7 +24,7 @@ def raw_to_capacitance(raw):
     return cap_F * 1e12  # picofarads
 
 # Serial setup (adjust port as needed)
-ser = serial.Serial("/dev/cu.usbmodem2101", 115200, timeout=1)
+ser = serial.Serial("COM8", 115200, timeout=1)
 
 buffer_len = 100
 start_time = time.time()

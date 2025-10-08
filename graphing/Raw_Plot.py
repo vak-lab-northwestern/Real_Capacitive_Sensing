@@ -4,12 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cmcrameri import cm
 
-csvfolder = "single_tests"
-data = ["09282025_Single_Finger_Test3.csv"]
-plotfolder = "raw_plots"
+csvfolder = "data"
+data = ["10082025_singleconfig8_pressure_cap_CH1_CH5.csv"]
+# plotfolder = "raw_plots"
 
 
-channels_to_plot = [1,2]   # column indexes to plot (0 = time, 1 = first channel, etc.)
+channels_to_plot = [2,6]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
 # colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
@@ -42,7 +42,7 @@ for csvfilename in data:
         continue
 
     # Normalize time to start at 0
-    t0 = times[0] + 1
+    t0 = times[0] + 110
     times = [t - t0 for t in times]
     channel_name = csvfilename.replace("20250911", "").replace(".csv", "").replace("_", " ")
 
