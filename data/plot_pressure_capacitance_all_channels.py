@@ -42,14 +42,14 @@ import glob
 import os
 from pathlib import Path
 
-def discover_pressure_capacitance_files():
-    """Discover all pressure capacitance CSV files from 09282025"""
+def discover_pressure_capacitance_files(date_pattern="09282025"):
+    """Discover all pressure capacitance CSV files from specified date"""
     data_files = []
     
     # Search for pressure capacitance files specifically (only original files, not processed ones)
     search_patterns = [
-        "09282025_singleconfig8_pressure_capacitance_CH*_CH*.csv",
-        "../data/09282025_singleconfig8_pressure_capacitance_CH*_CH*.csv"
+        f"{date_pattern}_singleconfig8_pressure_cap*_CH*_CH*.csv",
+        f"../{date_pattern}_singleconfig8_pressure_cap*_CH*_CH*.csv"
     ]
     
     for pattern in search_patterns:
@@ -293,12 +293,12 @@ def create_pressure_summary_plot(file_info_list):
     
     plt.show()
 
-def plot_all_pressure_capacitance_data():
-    """Main function to discover and plot all 09282025 pressure capacitance data"""
-    print("=== Pressure Capacitance Plotting Script for 09282025 Data ===")
+def plot_all_pressure_capacitance_data(date_pattern="09282025"):
+    """Main function to discover and plot all pressure capacitance data"""
+    print(f"=== Pressure Capacitance Plotting Script for {date_pattern} Data ===")
     
     # Discover all pressure capacitance files
-    files = discover_pressure_capacitance_files()
+    files = discover_pressure_capacitance_files(date_pattern)
     
     if not files:
         print("No 09282025 pressure capacitance CSV files found!")
@@ -341,11 +341,11 @@ def plot_specific_pressure_files(filenames, cutoff_freq=2.0):
         else:
             print(f"Could not analyze {filename}")
 
-def plot_by_channel_pair(channel_pair, cutoff_freq=2.0):
+def plot_by_channel_pair(channel_pair, cutoff_freq=2.0, date_pattern="09282025"):
     """Plot all files of a specific channel pair"""
     print(f"=== Plotting {channel_pair} Channel Pair Files ===")
     
-    files = discover_pressure_capacitance_files()
+    files = discover_pressure_capacitance_files(date_pattern)
     file_info_list = []
     
     for filename in files:
@@ -360,51 +360,70 @@ def plot_by_channel_pair(channel_pair, cutoff_freq=2.0):
     for file_info in file_info_list:
         plot_single_file(file_info, cutoff_freq)
 
-def detect_response_time(df, channel_cols, threshold=0.1, window_size=10):
+def detect_first_significant_change(df, channel_cols, change_threshold=0.01):
     """
-    Detect when any channel starts to show meaningful changes above threshold
+    Detect the first row where any channel shows a sustained change exceeding the threshold from initial baseline
+    Forces truncation by using a very small initial baseline window (first 5 samples only)
     
     Parameters:
     - df: DataFrame with timestamp and channel data
     - channel_cols: List of channel column names
-    - threshold: Minimum change in pF to consider as meaningful (default: 0.1 pF)
-    - window_size: Window size for rolling mean calculation
+    - change_threshold: Minimum change in pF from baseline to consider significant (default: 0.01 pF)
     
     Returns:
-    - response_time: Time in seconds when response starts
-    - response_index: Index in DataFrame when response starts
+    - first_change_time: Time in seconds when first significant change appears
+    - first_change_index: Index in DataFrame when first significant change appears
     """
-    response_index = 0
+    # Use only first 5 samples as baseline - ensures we find changes even if they start early
+    baseline_window = min(5, len(df))
+    baselines = {}
     
     for ch_col in channel_cols:
         if ch_col in df.columns:
-            # Calculate rolling mean to smooth out noise
-            rolling_mean = df[ch_col].rolling(window=window_size, center=True).mean()
-            
-            # Calculate the difference from the initial value
-            initial_value = rolling_mean.iloc[window_size//2] if not rolling_mean.isna().iloc[window_size//2] else df[ch_col].iloc[0]
-            diff_from_initial = rolling_mean - initial_value
-            
-            # Find first point where absolute change exceeds threshold
-            threshold_exceeded = np.abs(diff_from_initial) >= threshold
-            first_change_idx = threshold_exceeded.idxmax() if threshold_exceeded.any() else None
-            
-            if first_change_idx is not None and not threshold_exceeded.iloc[first_change_idx]:
-                # idxmax() returns first False if no True found, so we need to find actual first True
-                true_indices = np.where(threshold_exceeded)[0]
-                if len(true_indices) > 0:
-                    first_change_idx = true_indices[0]
-            
-            # Update response_index to the earliest meaningful change across all channels
-            if first_change_idx is not None and first_change_idx > response_index:
-                response_index = first_change_idx
+            baseline_values = df[ch_col].iloc[:baseline_window]
+            # Filter out any NaN or zero values
+            valid_baseline = baseline_values[~pd.isna(baseline_values) & (baseline_values != 0)]
+            if len(valid_baseline) > 0:
+                baselines[ch_col] = valid_baseline.mean()
+            else:
+                baselines[ch_col] = 0
     
-    # Convert index to time
-    response_time = df['timestamp'].iloc[response_index] if response_index < len(df) else df['timestamp'].iloc[-1]
+    # Find the first row AFTER baseline window where any channel shows sustained change beyond threshold
+    # Start searching from after the baseline window
+    consecutive_threshold = 3  # Need 3 consecutive points above threshold
+    consecutive_counts = {ch_col: 0 for ch_col in channel_cols}
     
-    return response_time, response_index
+    # Start searching from after baseline window to ensure we always find something to truncate
+    for idx in range(baseline_window, len(df)):
+        for ch_col in channel_cols:
+            if ch_col in df.columns and ch_col in baselines:
+                value = df[ch_col].iloc[idx]
+                if not pd.isna(value) and value != 0:
+                    change = abs(value - baselines[ch_col])
+                    
+                    # Check if change exceeds threshold
+                    if change >= change_threshold:
+                        consecutive_counts[ch_col] += 1
+                        
+                        # If we have sustained change, this is our truncation point
+                        if consecutive_counts[ch_col] >= consecutive_threshold:
+                            first_change_index = max(0, idx - consecutive_threshold + 1)
+                            first_change_time = df['timestamp'].iloc[first_change_index]
+                            return first_change_time, first_change_index
+                    else:
+                        consecutive_counts[ch_col] = 0
+    
+    # If no significant change found even after baseline, truncate at baseline window end
+    # This ensures all datasets get some truncation
+    if baseline_window < len(df):
+        first_change_time = df['timestamp'].iloc[baseline_window]
+        return first_change_time, baseline_window
+    
+    # Fallback - return start of data
+    first_change_time = df['timestamp'].iloc[0]
+    return first_change_time, 0
 
-def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistency=True, truncate_response=True, response_threshold=0.1):
+def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistency=True, truncate_response=True, response_threshold=0.1, date_pattern="09282025"):
     """
     Batch post-process all pressure capacitance data with noise filtering and consistent y-limits
     
@@ -414,44 +433,52 @@ def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistenc
     - ylim_consistency: Whether to use consistent y-axis limits based on CH1_CH5 data
     - truncate_response: Whether to truncate initial response time until meaningful changes occur
     - response_threshold: Minimum change in pF to consider as meaningful response (default: 0.1 pF)
+    - date_pattern: Date pattern to search for (e.g., "09282025" or "10082025")
     """
-    print("=== Batch Post-Processing Pressure Capacitance Data ===")
+    print(f"=== Batch Post-Processing Pressure Capacitance Data ({date_pattern}) ===")
     
     # Discover all files
-    files = discover_pressure_capacitance_files()
+    files = discover_pressure_capacitance_files(date_pattern)
     
     if not files:
         print("No pressure capacitance files found!")
         return
     
-    # First pass: analyze all files and determine y-axis limits
+    # First pass: analyze all files and determine y-axis limits and max duration
     all_data_stats = {}
     ch1_ch5_limits = None
+    max_duration_after_truncation = 0
     
     if ylim_consistency:
-        print("Analyzing data ranges for consistent y-axis limits...")
-        ch1_ch5_files = [f for f in files if 'CH1_CH5' in f]
+        print("Setting consistent y-axis limits [275, 300] pF for all files...")
+        # Use fixed y-axis limits
+        ch1_ch5_limits = (275, 300)
         
-        if ch1_ch5_files:
-            # Calculate y-axis limits from CH1_CH5 data
-            min_vals, max_vals = [], []
-            for filename in ch1_ch5_files:
+        # Calculate max duration if truncate_response is enabled
+        if truncate_response:
+            for filename in files:
                 try:
-                    df = pd.read_csv(filename)
+                    # Force read with all 8 channels
+                    with open(filename, 'r') as f:
+                        first_line = f.readline()
+                        second_line = f.readline()
+                        num_values = len(second_line.split(','))
+                    
+                    if num_values == 9:
+                        df = pd.read_csv(filename, names=['timestamp', 'CH0_pF', 'CH1_pF', 'CH2_pF', 'CH3_pF', 'CH4_pF', 'CH5_pF', 'CH6_pF', 'CH7_pF'], header=0)
+                    else:
+                        df = pd.read_csv(filename)
+                    
                     channel_cols = [col for col in df.columns if col.startswith('CH') and col.endswith('_pF')]
-                    for col in channel_cols:
-                        min_vals.append(df[col].min())
-                        max_vals.append(df[col].max())
+                    first_change_time, first_change_index = detect_first_significant_change(df, channel_cols, change_threshold=0.01)
+                    df_truncated = df.iloc[first_change_index:].copy()
+                    duration_after_truncation = df_truncated['timestamp'].max() - df_truncated['timestamp'].iloc[0]
+                    max_duration_after_truncation = max(max_duration_after_truncation, duration_after_truncation)
                 except Exception as e:
                     print(f"Error analyzing {filename}: {e}")
             
-            if min_vals and max_vals:
-                # Add 5% margin to the range
-                margin = (max(max_vals) - min(min_vals)) * 0.05
-                ch1_ch5_limits = (min(min_vals) - margin, max(max_vals) + margin)
-                print(f"CH1_CH5 y-axis limits set to: {ch1_ch5_limits[0]:.1f} - {ch1_ch5_limits[1]:.1f} pF")
-        else:
-            print("No CH1_CH5 files found for y-axis limit reference")
+            if max_duration_after_truncation > 0:
+                print(f"Max duration after truncation: {max_duration_after_truncation:.1f} seconds")
     
     # Second pass: process each file
     successful_processing = 0
@@ -460,8 +487,20 @@ def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistenc
         print(f"\n=== Processing {os.path.basename(filename)} ===")
         
         try:
-            # Read the data
-            df = pd.read_csv(filename)
+            # Read the data - force all files to have 9 columns (timestamp + 8 channels)
+            # First, read raw to check actual number of values per row
+            with open(filename, 'r') as f:
+                first_line = f.readline()
+                second_line = f.readline()
+                num_values = len(second_line.split(','))
+            
+            if num_values == 9:
+                # Force read with all 8 channel names regardless of what header says
+                df = pd.read_csv(filename, names=['timestamp', 'CH0_pF', 'CH1_pF', 'CH2_pF', 'CH3_pF', 'CH4_pF', 'CH5_pF', 'CH6_pF', 'CH7_pF'], header=0)
+            else:
+                # If genuinely fewer columns, read normally
+                df = pd.read_csv(filename)
+            
             print(f"Data shape: {df.shape}")
             
             # Calculate sampling rate
@@ -472,20 +511,37 @@ def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistenc
             # Extract channel columns
             channel_cols = [col for col in df.columns if col.startswith('CH') and col.endswith('_pF')]
             
-            # Detect and truncate initial response time if requested
-            response_time = None
-            response_index = 0
+            # Extract the specific channel pair from filename for zoomed view
+            # Expected format: 10082025_singleconfig8_pressure_cap_CH1_CH6.csv
+            basename = os.path.basename(filename)
+            specific_channels = []
+            try:
+                # Extract channel numbers from filename
+                import re
+                ch_matches = re.findall(r'_CH(\d+)', basename)
+                if len(ch_matches) >= 2:
+                    specific_channels = [f'CH{ch_matches[0]}_pF', f'CH{ch_matches[1]}_pF']
+                    print(f"Specific channels for zoomed view: {specific_channels}")
+            except:
+                pass
+            
+            # Detect and truncate initial baseline period before significant changes if requested
+            first_change_time = None
+            first_change_index = 0
             if truncate_response:
-                response_time, response_index = detect_response_time(df, channel_cols, response_threshold)
-                print(f"Response time detected at: {response_time:.2f} seconds (index: {response_index})")
-                
-                # Truncate data from response time onwards
-                df = df.iloc[response_index:].copy()
-                df = df.reset_index(drop=True)
-                
-                # Adjust timestamp to start from zero
-                df['timestamp'] = df['timestamp'] - df['timestamp'].iloc[0]
-                print(f"Data truncated. New data shape: {df.shape}")
+                first_change_time, first_change_index = detect_first_significant_change(df, channel_cols, change_threshold=0.01)
+                if first_change_index > 0:
+                    print(f"First significant change (>0.01 pF) at: {first_change_time:.2f} seconds (index: {first_change_index})")
+                    
+                    # Truncate data from first significant change onwards
+                    df = df.iloc[first_change_index:].copy()
+                    df = df.reset_index(drop=True)
+                    
+                    # Adjust timestamp to start from zero
+                    df['timestamp'] = df['timestamp'] - df['timestamp'].iloc[0]
+                    print(f"Data truncated. New data shape: {df.shape}")
+                else:
+                    print(f"Significant changes present from start - no truncation needed")
             
             # Apply noise filtering
             if sampling_rate > 4:  # Only filter if sampling rate is reasonable
@@ -513,13 +569,22 @@ def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistenc
                 filter_suffix = ""
             
             # Save filtered data if requested
-            if save_filtered and (filter_suffix or (truncate_response and response_time)):
+            if save_filtered and (filter_suffix or (truncate_response and first_change_time and first_change_index > 0)):
                 base_name = os.path.splitext(os.path.basename(filename))[0]
-                truncate_suffix = "_truncated" if truncate_response and response_time else ""
+                truncate_suffix = "_truncated" if truncate_response and first_change_time and first_change_index > 0 else ""
                 filtered_filename = f"{base_name}{filter_suffix}{truncate_suffix}.csv"
                 df_to_save = df[['timestamp'] + plot_columns].copy()
                 df_to_save.to_csv(filtered_filename, index=False)
                 print(f"Processed data saved as: {filtered_filename}")
+            
+            # Set font to Arial with minimum size 16 BEFORE creating plots
+            plt.rcParams['font.family'] = 'Arial'
+            plt.rcParams['font.size'] = 16
+            plt.rcParams['axes.titlesize'] = 18
+            plt.rcParams['axes.labelsize'] = 16
+            plt.rcParams['xtick.labelsize'] = 16
+            plt.rcParams['ytick.labelsize'] = 16
+            plt.rcParams['legend.fontsize'] = 16
             
             # Create the plot with consistent y-axis limits
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 12))
@@ -544,41 +609,59 @@ def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistenc
                     ax1.plot(df['timestamp'], df[ch_col], 
                             linewidth=1.5, color=color, alpha=0.8, label=channel_name)
             
-            # Set y-axis limits if consistency is requested
+            # Set y-axis limits
             if ylim_consistency and ch1_ch5_limits:
+                # Main plot uses consistent limits
                 ax1.set_ylim(ch1_ch5_limits)
-                # For zoomed view, calculate individual y-limits based on data in first 60 seconds
-                zoom_mask = df['timestamp'] <= 120
-                if zoom_mask.any():
-                    zoom_data = df.loc[zoom_mask, plot_columns]
-                    min_val = zoom_data.min().min()
-                    max_val = zoom_data.max().max()
-                    margin = (max_val - min_val) * 0.1  # 10% margin
-                    ax2.set_ylim([min_val - margin, max_val + margin])
-                else:
-                    ax2.set_ylim(ch1_ch5_limits)
+                # Zoomed plot will be normalized (ΔC/C₀), so it will auto-scale
             else:
-                # If no consistent limits, use individual limits for both plots
+                # If no consistent limits, use individual limits for main plot
                 all_data = df[plot_columns]
                 min_val = all_data.min().min()
                 max_val = all_data.max().max()
                 margin = (max_val - min_val) * 0.1  # 10% margin
                 ax1.set_ylim([min_val - margin, max_val + margin])
-                
-                # For zoomed view, calculate individual y-limits based on data in first 60 seconds
-                zoom_mask = df['timestamp'] <= 120
-                if zoom_mask.any():
-                    zoom_data = df.loc[zoom_mask, plot_columns]
-                    min_val_zoom = zoom_data.min().min()
-                    max_val_zoom = zoom_data.max().max()
-                    margin_zoom = (max_val_zoom - min_val_zoom) * 0.1  # 10% margin
-                    ax2.set_ylim([min_val_zoom - margin_zoom, max_val_zoom + margin_zoom])
-                else:
-                    ax2.set_ylim([min_val - margin, max_val + margin])
+                # Zoomed plot will be normalized (ΔC/C₀), so it will auto-scale
             
-            # Set x-axis limits
-            ax1.set_xlim([0, 500])  # Main plot: 0-500 seconds
-            ax2.set_xlim([0, 120])  # Zoomed view: 0-120 seconds
+            # Set x-axis limits - consistent [0, 700] for main plot
+            ax1.set_xlim([0, 700])  # Main plot: 0-700 seconds
+            
+            # Set zoomed view x-limits - custom for specific datasets
+            basename = os.path.basename(filename)
+            if 'CH0_CH4' in basename:
+                ax2.set_xlim([0, 270])  # Zoomed view for CH0_CH4: 0-270 seconds
+            elif 'CH0_CH5' in basename:
+                ax2.set_xlim([0, 240])  # Zoomed view for CH0_CH5: 0-240 seconds
+            elif 'CH0_CH6' in basename:
+                ax2.set_xlim([0, 180])  # Zoomed view for CH0_CH6: 0-180 seconds
+            elif 'CH0_CH7' in basename:
+                ax2.set_xlim([0, 360])  # Zoomed view for CH0_CH7: 0-360 seconds
+            elif 'CH1_CH4' in basename:
+                ax2.set_xlim([0, 300])  # Zoomed view for CH1_CH4: 0-300 seconds
+            elif 'CH1_CH5' in basename:
+                ax2.set_xlim([0, 270])  # Zoomed view for CH1_CH5: 0-270 seconds
+            elif 'CH1_CH6' in basename:
+                ax2.set_xlim([0, 270])  # Zoomed view for CH1_CH6: 0-270 seconds
+            elif 'CH1_CH7' in basename:
+                ax2.set_xlim([0, 270])  # Zoomed view for CH1_CH7: 0-270 seconds
+            elif 'CH2_CH4' in basename:
+                ax2.set_xlim([0, 270])  # Zoomed view for CH2_CH4: 0-270 seconds
+            elif 'CH2_CH5' in basename:
+                ax2.set_xlim([0, 270])  # Zoomed view for CH2_CH5: 0-270 seconds
+            elif 'CH2_CH6' in basename:
+                ax2.set_xlim([0, 270])  # Zoomed view for CH2_CH6: 0-270 seconds
+            elif 'CH2_CH7' in basename:
+                ax2.set_xlim([0, 240])  # Zoomed view for CH2_CH7: 0-240 seconds
+            elif 'CH3_CH4' in basename:
+                ax2.set_xlim([0, 240])  # Zoomed view for CH3_CH4: 0-240 seconds
+            elif 'CH3_CH5' in basename:
+                ax2.set_xlim([0, 240])  # Zoomed view for CH3_CH5: 0-240 seconds
+            elif 'CH3_CH6' in basename:
+                ax2.set_xlim([0, 240])  # Zoomed view for CH3_CH6: 0-240 seconds
+            elif 'CH3_CH7' in basename:
+                ax2.set_xlim([0, 270])  # Zoomed view for CH3_CH7: 0-270 seconds
+            else:
+                ax2.set_xlim([0, 120])  # Zoomed view for others: 0-120 seconds
             
             # Customize the main plot
             ax1.set_title(f'{os.path.basename(filename)}', 
@@ -588,30 +671,90 @@ def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistenc
             ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=16)
             ax1.grid(True, alpha=0.3)
             
-            # Create a zoomed-in view (first 120 seconds)
-            zoom_duration = 120
-            for i, ch_col in enumerate(plot_columns):
-                if ch_col in df.columns:
-                    color = colors[i % len(colors)]
-                    channel_name = ch_col.replace('_pF_filtered', '').replace('_pF', '')
-                    mask = df['timestamp'] <= zoom_duration
-                    ax2.plot(df.loc[mask, 'timestamp'], df.loc[mask, ch_col], 
-                            linewidth=1.5, color=color, alpha=0.8, label=channel_name)
+            # Create a zoomed-in view - only plot specific channels from filename
+            # Custom durations for specific datasets
+            basename = os.path.basename(filename)
+            if 'CH0_CH4' in basename:
+                zoom_duration = 270
+            elif 'CH0_CH5' in basename:
+                zoom_duration = 240
+            elif 'CH0_CH6' in basename:
+                zoom_duration = 180
+            elif 'CH0_CH7' in basename:
+                zoom_duration = 360
+            elif 'CH1_CH4' in basename:
+                zoom_duration = 300
+            elif 'CH1_CH5' in basename:
+                zoom_duration = 270
+            elif 'CH1_CH6' in basename:
+                zoom_duration = 270
+            elif 'CH1_CH7' in basename:
+                zoom_duration = 270
+            elif 'CH2_CH4' in basename:
+                zoom_duration = 270
+            elif 'CH2_CH5' in basename:
+                zoom_duration = 270
+            elif 'CH2_CH6' in basename:
+                zoom_duration = 270
+            elif 'CH2_CH7' in basename:
+                zoom_duration = 240
+            elif 'CH3_CH4' in basename:
+                zoom_duration = 240
+            elif 'CH3_CH5' in basename:
+                zoom_duration = 240
+            elif 'CH3_CH6' in basename:
+                zoom_duration = 240
+            elif 'CH3_CH7' in basename:
+                zoom_duration = 270
+            else:
+                zoom_duration = 120
             
-            ax2.set_title('Zoomed View - First 120 seconds', 
+            # Determine which columns to plot in zoom view
+            if specific_channels:
+                # Create filtered versions if needed
+                zoom_plot_columns = []
+                for ch in specific_channels:
+                    if filter_suffix:
+                        zoom_ch = ch.replace('_pF', '_pF_filtered')
+                        if zoom_ch in df.columns:
+                            zoom_plot_columns.append(zoom_ch)
+                    else:
+                        if ch in df.columns:
+                            zoom_plot_columns.append(ch)
+            else:
+                # If no specific channels found, use all
+                zoom_plot_columns = plot_columns
+            
+            # Calculate initial C0 values for normalization (average of first 5 points)
+            c0_values = {}
+            for ch_col in zoom_plot_columns:
+                if ch_col in df.columns:
+                    initial_window = min(5, len(df))
+                    c0_values[ch_col] = df[ch_col].iloc[:initial_window].mean()
+            
+            # Plot normalized change (ΔC/C₀) for zoomed view
+            for ch_col in zoom_plot_columns:
+                if ch_col in df.columns and ch_col in c0_values and c0_values[ch_col] != 0:
+                    # Get channel number to determine color
+                    ch_name = ch_col.replace('_pF_filtered', '').replace('_pF', '')
+                    ch_num = int(ch_name.replace('CH', ''))
+                    color = colors[ch_num % len(colors)]
+                    channel_name = ch_name
+                    mask = df['timestamp'] <= zoom_duration
+                    
+                    # Calculate normalized change: (C - C0) / C0
+                    normalized_change = (df.loc[mask, ch_col] - c0_values[ch_col]) / c0_values[ch_col]
+                    
+                    ax2.plot(df.loc[mask, 'timestamp'], normalized_change, 
+                            linewidth=2.0, color=color, alpha=0.8, label=channel_name)
+            
+            ax2.set_title(f'Zoomed View - First {zoom_duration} seconds (ΔC/C0)', 
                          fontsize=18, fontweight='bold')
             ax2.set_xlabel('Time (s)', fontsize=16)
-            ax2.set_ylabel('Capacitance (pF)', fontsize=16)
+            ax2.set_ylabel('ΔC/C0 (Normalized Change)', fontsize=16)
+            ax2.legend(loc='best', fontsize=16)
             ax2.grid(True, alpha=0.3)
-            
-            # Set font to Arial with minimum size 16
-            plt.rcParams['font.family'] = 'Arial'
-            plt.rcParams['font.size'] = 16
-            plt.rcParams['axes.titlesize'] = 16
-            plt.rcParams['axes.labelsize'] = 16
-            plt.rcParams['xtick.labelsize'] = 16
-            plt.rcParams['ytick.labelsize'] = 16
-            plt.rcParams['legend.fontsize'] = 16
+            ax2.axhline(y=0, color='gray', linestyle='--', linewidth=0.8, alpha=0.5)  # Add zero reference line
             
             # Add statistics text box
             stats_text = "Channel Statistics:\n"
@@ -622,24 +765,37 @@ def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistenc
                     std_val = df[ch_col].std()
                     stats_text += f"{channel_name}: {mean_val:.1f}±{std_val:.1f} pF\n"
             
-            if truncate_response and response_time:
-                stats_text += f"\nResponse time: {response_time:.2f}s (truncated)"
+            # Add C₀ values for zoomed channels
+            if zoom_plot_columns and c0_values:
+                stats_text += f"\nC0 (baseline) for zoom:\n"
+                for ch_col in zoom_plot_columns:
+                    if ch_col in c0_values:
+                        channel_name = ch_col.replace('_pF_filtered', '').replace('_pF', '')
+                        stats_text += f"{channel_name}: {c0_values[ch_col]:.2f} pF\n"
+            
+            if truncate_response and first_change_time and first_change_index > 0:
+                stats_text += f"\nTruncated: {first_change_time:.2f}s removed"
             
             if ylim_consistency and ch1_ch5_limits:
                 stats_text += f"\nY-limits: {ch1_ch5_limits[0]:.1f} - {ch1_ch5_limits[1]:.1f} pF"
             
-            ax1.text(0.02, 0.98, stats_text, transform=ax1.transAxes, 
-                    verticalalignment='top', horizontalalignment='left',
+            # Note: X-limits are [0, 700] seconds for all plots
+            stats_text += f"\nX-limits: 0 - 700 s"
+            
+            # Position statistics box outside the second subplot (ax2), aligned with it
+            # Place it on the right side at the same height as ax2
+            ax2.text(1.05, 0.5, stats_text, transform=ax2.transAxes, 
+                    verticalalignment='center', horizontalalignment='left',
                     bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
-                    fontsize=16)
+                    fontsize=14)
             
             # Adjust layout
             plt.tight_layout()
             
             # Save the plot
             base_name = os.path.splitext(os.path.basename(filename))[0]
-            truncate_suffix = "_truncated" if truncate_response and response_time else ""
-            output_suffix = f"{filter_suffix}{truncate_suffix}_processed"
+            truncate_suffix = "_truncated" if truncate_response and first_change_time and first_change_index > 0 else ""
+            output_suffix = f"{filter_suffix}{truncate_suffix}_processed" if filter_suffix or truncate_suffix else "_processed"
             output_filename = f"{base_name}{output_suffix}.png"
             plt.savefig(output_filename, dpi=300, bbox_inches='tight', 
                        facecolor='white', edgecolor='none', format='png')
@@ -655,18 +811,24 @@ def batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistenc
     print(f"\n=== Batch Processing Summary ===")
     print(f"Total files processed: {successful_processing}/{len(files)}")
     print(f"Filter cutoff frequency: {cutoff_freq} Hz")
-    print(f"Response truncation: {'Enabled' if truncate_response else 'Disabled'}")
+    print(f"Baseline truncation: {'Enabled' if truncate_response else 'Disabled'}")
     if truncate_response:
-        print(f"Response threshold: {response_threshold} pF")
+        print(f"Change threshold: 0.01 pF (truncates until change exceeds this value)")
+    print(f"X-axis limits: 0 - 700 seconds (consistent across all plots)")
     print(f"Y-axis consistency: {'Enabled' if ylim_consistency else 'Disabled'}")
     if ylim_consistency and ch1_ch5_limits:
-        print(f"Y-axis limits: {ch1_ch5_limits[0]:.1f} - {ch1_ch5_limits[1]:.1f} pF")
+        print(f"Y-axis limits: {ch1_ch5_limits[0]:.1f} - {ch1_ch5_limits[1]:.1f} pF (consistent across all plots)")
     print(f"Processed data saved: {'Yes' if save_filtered else 'No'}")
 
 if __name__ == "__main__":
-    # Run batch post-processing with noise filtering, response truncation, and consistent y-limits
-    batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistency=True, 
-                           truncate_response=True, response_threshold=0.1)
+    # Run batch post-processing with noise filtering, truncate only initial no-reading period
+    # For 10082025 data
+    batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistency=False, 
+                           truncate_response=True, response_threshold=1.0, date_pattern="10082025")
+    
+    # For 09282025 data (original):
+    # batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistency=True, 
+    #                        truncate_response=False, response_threshold=0.1, date_pattern="09282025")
     
     # Alternatively, run the standard plotting function
-    # plot_all_pressure_capacitance_data()
+    # plot_all_pressure_capacitance_data(date_pattern="10082025")
