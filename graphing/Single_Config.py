@@ -24,7 +24,8 @@ def raw_to_capacitance(raw):
     return cap_F * 1e12  # picofarads
 
 # Serial setup (adjust port as needed)
-ser = serial.Serial("COM8", 115200, timeout=1)
+# COM8 for Brandon and COM5 for Maggie
+ser = serial.Serial("COM5", 115200, timeout=1)
 
 buffer_len = 100
 start_time = time.time()
