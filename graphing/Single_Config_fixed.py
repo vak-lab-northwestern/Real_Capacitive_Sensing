@@ -58,7 +58,7 @@ print("[INFO] Logging system initialized. Click 'Start Logging' to begin data co
 def generate_filename():
     """Generate automatic filename with timestamp"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"../data/10082025_singleconfig8_pressure_cap_CH3_CH7.csv"
+    return f"../data/10132025_singleconfig8_pressure_cap_test.csv"
 
 def start_logging(event):
     global logging_enabled, csv_file, csv_writer
