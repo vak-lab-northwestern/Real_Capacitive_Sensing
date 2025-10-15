@@ -3,74 +3,92 @@
 #include "FDC2214.h"
 
 /*
-  Working code for 2 chip configuration
-  Initiating FDC2214 chip addresses 
-  Only 2 possible configurations 
-  ADDR_0 = 0x2A
-  ADDR_1 = 0x2B
+  Dual FDC2214 Continuous Time-Division Multiplexing (TDM)
+  Each FDC2214 uses its own 4:1 analog multiplexer.
+
+  Output format to Serial (one line per full scan):
+  CH0,CH1,CH2,CH3,CH4,CH5,CH6,CH7\n
+  where:
+    CH0–CH3 = FDC1 readings for MUX states 0–3
+    CH4–CH7 = FDC2 readings for MUX states 0–3
 */
-FDC2214 capsense0(FDC2214_I2C_ADDR_0); 
 
-// Variable definition
-#define CHAN_COUNT 2
-#define Button 4
-#define Num_1 6   // A (LSB)
-#define Num_2 7   // B
-#define Num_3 8   // C (MSB)
+// MUX pin mapping
+#define MUX1_S0 2   // FDC1 select bit 0 (LSB)
+#define MUX1_S1 3   // FDC1 select bit 1 (MSB)
+#define MUX2_S0 4   // FDC2 select bit 0 (LSB)
+#define MUX2_S1 5   // FDC2 select bit 1 (MSB)
 
-int muxState = 0;  
+// Constants
+#define TOTAL_MUX_CHANNELS 4
+#define SETTLE_MS 5         // allow short settling time after switching
+#define BETWEEN_CHIP_US 300 // small gap between reading chip1 and chip2
+#define SWITCH_INTERVAL 0   // no extra ms needed; pacing handled by SETTLE_MS
+
+// FDC2214 Objects
+FDC2214 fdc1(FDC2214_I2C_ADDR_0); // Address 0x2A (ADDR pin LOW)
+FDC2214 fdc2(FDC2214_I2C_ADDR_1); // Address 0x2B (ADDR pin HIGH)
+
+// Helper Functions
+void setMuxPins(int s0, int s1, int state) {
+  digitalWrite(s0, state & 0x01);
+  digitalWrite(s1, (state >> 1) & 0x01);
+}
+
+void initFDC(FDC2214 &fdc, const char *name) {
+  bool ok = fdc.begin(0x3, 0x4, 0x5, false);
+  if (ok) Serial.print(name), Serial.println(" OK");
+  else Serial.print(name), Serial.println(" FAIL");
+}
 
 void setup() {
   Wire.begin();
-
   Serial.begin(9600);
-  pinMode(Num_1, OUTPUT);
-  pinMode(Num_2, OUTPUT);
-  pinMode(Num_3, OUTPUT);
-  pinMode(Button, INPUT_PULLUP);
 
-  digitalWrite(Num_1, LOW);
-  digitalWrite(Num_2, LOW);
-  digitalWrite(Num_3, LOW);
-  
-  bool capO = capsense0.begin(0x3, 0x4, 0x5, false); 
+  // Configure MUX control pins
+  pinMode(MUX1_S0, OUTPUT);
+  pinMode(MUX1_S1, OUTPUT);
+  pinMode(MUX2_S0, OUTPUT);
+  pinMode(MUX2_S1, OUTPUT);
 
-  /* Checking if sensor is being read on the same communication bus */
-  if (capO) Serial.println("Sensor OK");  
-  else Serial.println("Sensor Fail");  
-  
- }
+  // Initialize MUX to channel 0
+  setMuxPins(MUX1_S0, MUX1_S1, 0);
+  setMuxPins(MUX2_S0, MUX2_S1, 0);
 
-void setMux(int state) {
-  // Convert counter into binary CBA (LSB = A = Num_1)
-  digitalWrite(Num_1, state & 0x01);  // A
-  digitalWrite(Num_2, (state >> 1) & 0x01);  // B
-  digitalWrite(Num_3, (state >> 2) & 0x01);  // C
+  // Initialize both FDCs
+  initFDC(fdc1, "FDC1");
+  initFDC(fdc2, "FDC2");
+
+  Serial.println("Starting multiplexed capacitance scan (RAW)...");
+  delay(500);
 }
 
+// Main Loop
 void loop() {
-  unsigned long capa0[CHAN_COUNT]; 
+  unsigned long readings[8];
 
-  for (int i = 0; i < CHAN_COUNT; i++){ 
-    capa0[i]= capsense0.getReading28(i);
+  for (int muxState = 0; muxState < TOTAL_MUX_CHANNELS; muxState++) {
+    // Set both muxes
+    setMuxPins(MUX1_S0, MUX1_S1, muxState);
+    setMuxPins(MUX2_S0, MUX2_S1, muxState);
+
+    // Wait for switch to settle
+    delay(SETTLE_MS);
+
+    // Read FDC1 (raw)
+    readings[muxState] = fdc1.getReading28(0);
+
+    // small gap between chips
+    delayMicroseconds(BETWEEN_CHIP_US);
+
+    // Read FDC2 (raw)
+    readings[muxState + 4] = fdc2.getReading28(0);
   }
 
-  for (int i = 0; i < CHAN_COUNT; i++) {
-    Serial.print(capa0[i]);
-    if (i < CHAN_COUNT - 1) Serial.print(", ");
+  // Print CSV
+  for (int i = 0; i < 8; i++) {
+    Serial.print(readings[i]);
+    if (i < 7) Serial.print(",");
   }
   Serial.println();
-
-
-  if (digitalRead(Button) == LOW) {
-    muxState = (muxState + 1) % 8;   // cycle through 0–2
-    setMux(muxState);
-
-    // Serial.print("Mux State: ");
-    // Serial.println(muxState);
-
-    delay(200);  // debounce delay
-  }
-  delay(100);
 }
- 
