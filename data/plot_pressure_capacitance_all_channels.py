@@ -42,7 +42,7 @@ import glob
 import os
 from pathlib import Path
 
-def discover_pressure_capacitance_files(date_pattern="09282025"):
+def discover_pressure_capacitance_files(date_pattern="10142025"):
     """Discover all pressure capacitance CSV files from specified date"""
     data_files = []
     
@@ -824,7 +824,7 @@ if __name__ == "__main__":
     # Run batch post-processing with noise filtering, truncate only initial no-reading period
     # For 10082025 data
     batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistency=False, 
-                           truncate_response=True, response_threshold=1.0, date_pattern="10082025")
+                           truncate_response=True, response_threshold=1.0, date_pattern="10142025")
     
     # For 09282025 data (original):
     # batch_post_process_data(cutoff_freq=2.0, save_filtered=True, ylim_consistency=True, 
