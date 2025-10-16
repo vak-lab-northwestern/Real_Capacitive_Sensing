@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 from cmcrameri import cm
 
 csvfolder = "data"
-data = ["10082025_singleconfig8_pressure_cap_CH1_CH5.csv"]
-# plotfolder = "raw_plots"
+data = ["10162025_MUX_4_x_4_CH1_CH6.csv"]
+plotfolder = "MUX_plots"
 
 
-channels_to_plot = [2,6]   # column indexes to plot (0 = time, 1 = first channel, etc.)
+channels_to_plot = [5,6,7,8]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
 # colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
@@ -50,7 +50,7 @@ for csvfilename in data:
     for idx, ch in enumerate(channels_to_plot):
         plt.plot(
             times, channel_data[ch],
-            label=f"{channel_name}",
+            label=f"{idx+4}",
             linewidth=1.2
         )
 
@@ -62,10 +62,10 @@ for csvfilename in data:
     plt.legend(loc="upper left")
     plt.grid(False)
     plt.tight_layout()
-    plt.show()
-    # outfile = os.path.join(plotfolder, f"{channel_name}.png")
-    # plt.savefig(outfile, dpi=300)
-    # plt.close()
+    # plt.show()
+    outfile = os.path.join(plotfolder, f"{channel_name}.png")
+    plt.savefig(outfile, dpi=300)
+    plt.close()
 
 # plt.xlim(0,120)
 # plt.ylim(100, 600)
