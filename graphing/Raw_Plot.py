@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from cmcrameri import cm
 
 csvfolder = "data"
-data = ["10162025_MUX_4_x_4_CH1_CH6.csv"]
+data = ["10162025_MUX_4_x_4_CH0_CH7.csv"]
 plotfolder = "MUX_plots"
 
 
@@ -48,16 +48,18 @@ for csvfilename in data:
 
     # Plot each channel
     for idx, ch in enumerate(channels_to_plot):
+        raw = idx+4
+        num = str(raw)
         plt.plot(
             times, channel_data[ch],
-            label=f"{idx+4}",
+            label=f"{"CH" + num}",
             linewidth=1.2
         )
 
     # plt.ylim(500,1500)
     plt.xlabel("Time (s)")
     plt.ylabel("Capacitance (pF)")
-    title_name = "Raw Data from Singles"
+    title_name = "4x4 MUX Single Config"
     plt.title(title_name)
     plt.legend(loc="upper left")
     plt.grid(False)
