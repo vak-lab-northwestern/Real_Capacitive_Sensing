@@ -23,7 +23,6 @@ def raw_to_capacitance(raw):
     return cap_F * 1e12  # pF
 
 # Serial setup
-# Update COM port as needed
 ser = serial.Serial("COM9", 9600, timeout=1)
 
 buffer_len = 100
