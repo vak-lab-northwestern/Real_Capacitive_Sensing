@@ -28,7 +28,7 @@ def raw_to_capacitance(raw):
 # Serial setup
 # -------------------------------
 # Update COM port as needed
-ser = serial.Serial("COM9", 9600, timeout=1)
+ser = serial.Serial("/dev/cu.usbserial-210", 9600, timeout=1)
 
 buffer_len = 100
 start_time = time.time()
