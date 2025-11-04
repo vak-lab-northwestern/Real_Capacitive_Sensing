@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 from cmcrameri import cm
 
 csvfolder = "data"
-data = ["10162025_MUX_4_x_4_CH0_CH7.csv"]
+data = ["11042025_MUX_1_1_CH4_CH7_Test2.csv"]
 plotfolder = "MUX_plots"
 
 
-channels_to_plot = [5,6,7,8]   # column indexes to plot (0 = time, 1 = first channel, etc.)
+channels_to_plot = [5,8]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
 # colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
