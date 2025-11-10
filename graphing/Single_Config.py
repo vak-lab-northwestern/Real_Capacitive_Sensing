@@ -7,14 +7,13 @@ import csv
 import time
 import threading
 import tkinter as tk
-import re
 from tkinter import filedialog
 
 # FDC2214 constants
 ref_clock = 40e6  # Hz
 scale_factor = ref_clock / (2 ** 28)
 inductance = 18e-6  # H
-channel_num = 8
+channel_num = 4
   
 def raw_to_capacitance(raw):
     freq = raw * scale_factor
@@ -24,23 +23,27 @@ def raw_to_capacitance(raw):
     return cap_F * 1e12  # picofarads
 
 # Serial setup (adjust port as needed)
-# COM8 for Brandon and COM5 for Maggie
 ser = serial.Serial("COM9", 9600, timeout=1)
 
 buffer_len = 100
 start_time = time.time()
-time_buffer = deque([start_time - (buffer_len - i) * 0.1 for i in range(buffer_len)], maxlen=buffer_len)
-ch = [deque([0.0] * buffer_len) for _ in range(channel_num)]
+time_buffer = deque(maxlen=buffer_len)  # Start empty
+ch = [deque(maxlen=buffer_len) for _ in range(channel_num)]  # Start empty
 
 # Plot setup
 plt.ion()
-fig, ax = plt.subplots()
-lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(channel_num)]
+fig, ax = plt.subplots(figsize=(10, 6))
+fig.subplots_adjust(bottom=0.15)
+
+# Create lines with initial data
+lines = [ax.plot([], [], label=f"CH{i}")[0] for i in range(channel_num)]
 ax.legend()
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Capacitance (pF)")
 ax.set_title("Live Capacitance from FDC2214 Channels")
 ax.grid(True)
+# ax.set_xlim(0, 10)  # Initial 10 second window
+# ax.set_ylim(0, 100)  # Will auto-adjust
 
 # Logging state 
 logging_enabled = False
@@ -48,7 +51,6 @@ csv_file = None
 csv_writer = None
 log_lock = threading.Lock()
 
-# Initialize logging state
 print("[INFO] Logging system initialized. Click 'Start Logging' to begin data collection.")
 
 def choose_output_file():
@@ -70,13 +72,10 @@ def start_logging(event):
         print("[DEBUG] Logging already enabled, ignoring click")
         return
 
-    # Set filename (use a fixed one or prompt user)
-    fname = None  # Replace with your fixed path if needed, e.g., "log.csv"
+    fname = choose_output_file()
     if not fname:
-        fname = choose_output_file()
-        if not fname:
-            print("[INFO] Logging cancelled (no file selected).")
-            return
+        print("[INFO] Logging cancelled (no file selected).")
+        return
 
     try:
         csv_file = open(fname, mode="w", newline="")
@@ -99,15 +98,12 @@ def stop_logging(event):
     global logging_enabled, csv_file, csv_writer
     print("[DEBUG] Stop button clicked")
     
-    # Always stop logging when button is pressed
     logging_enabled = False
     
-    # Reset button states
     btn_start.label.set_text("Start Logging")
     btn_start.color = "0.85"
     fig.canvas.draw_idle()
     
-    # Close and cleanup CSV file
     if csv_file:
         with log_lock:
             try:
@@ -129,71 +125,99 @@ btn_stop = Button(ax_stop, "Stop Logging")
 btn_start.on_clicked(start_logging)
 btn_stop.on_clicked(stop_logging)
 
-# Ensure the plot shows up
-fig.subplots_adjust(bottom=0.18)
 plt.show(block=False)
+plt.draw()
 
 def serial_worker():
-    global logging_enabled, csv_writer, csv_file
+    global logging_enabled, csv_writer, csv_file, start_time
+    
+    print("[INFO] Serial worker started, waiting for data...")
+    
     while True:
         try:
             raw_line = ser.readline().decode(errors="ignore").strip()
             if not raw_line:
                 continue
-            parts = raw_line.split(",")
+            
+            # Print raw line for debugging
+            # print(f"[DEBUG] Raw line: {raw_line}")
+            
+            # Remove trailing comma and split
+            parts = [p.strip() for p in raw_line.rstrip(',').split(",")]
+            
+            # Filter out empty strings
+            parts = [p for p in parts if p]
+            
             if len(parts) != channel_num:
+                print(f"[WARNING] Expected {channel_num} values, got {len(parts)}: {parts}")
                 continue
 
-            raw_vals = list(map(int, parts))
+            raw_vals = [int(p) for p in parts]
             caps = [raw_to_capacitance(r) for r in raw_vals]
+            
+            # print(f"[DEBUG] Capacitances: {[f'{c:.2f}' for c in caps]} pF")
 
-            # update buffers (only once)
+            # Update buffers
             now = time.time()
+            elapsed = now - start_time
+            time_buffer.append(elapsed)
+            
             for i in range(channel_num):
                 ch[i].append(caps[i])
-                ch[i].popleft()
-            time_buffer.append(now)
 
-            # logging
+            # Logging
             if logging_enabled and csv_writer and csv_file:
-                timestamp = now - start_time
                 with log_lock:
                     try:
-                        csv_writer.writerow([timestamp] + caps)
+                        csv_writer.writerow([elapsed] + caps)
                         csv_file.flush()
-                        print(f"[DEBUG] Wrote data: {timestamp:.2f}s, {caps[0]:.2f}pF")
                     except Exception as e:
                         print(f"[ERROR] Failed to write data: {e}")
                         logging_enabled = False
+                        
+        except ValueError as e:
+            print(f"[ERROR] Parse error: {e} - Line: {raw_line}")
+            continue
         except Exception as e:
-            print(f"Serial error: {e}")
+            print(f"[ERROR] Serial error: {e}")
             continue
 
 # Start serial thread
 t = threading.Thread(target=serial_worker, daemon=True)
 t.start()
 
+print("[INFO] Starting plot loop...")
+
 try:
     while True:
-        # update plot data
-        t_vals = [t - start_time for t in time_buffer]  # seconds since start
+        # Update plot data
+        t_vals = list(time_buffer)
+        
         for i in range(channel_num):
             lines[i].set_data(t_vals, list(ch[i]))
-        ax.relim()
-        ax.autoscale_view()
+        
+        # Auto-scale axes
+        if len(t_vals) > 0 and any(len(ch[i]) > 0 for i in range(channel_num)):
+            ax.relim()
+            ax.autoscale_view()
+        
+        fig.canvas.draw_idle()
         fig.canvas.flush_events()
-        plt.pause(0.05)  # gives control back to GUI event loop
+        plt.pause(0.1)
+        
 except KeyboardInterrupt:
-    pass
+    print("\n[INFO] Interrupted by user")
 finally:
     if csv_file:
         with log_lock:
             try:
                 csv_file.close()
+                print("[INFO] CSV file closed")
             except Exception:
                 pass
     try:
         ser.close()
+        print("[INFO] Serial port closed")
     except Exception:
         pass
-    print("Exiting.")
+    print("[INFO] Exiting.")

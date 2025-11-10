@@ -13,7 +13,7 @@ from tkinter import filedialog
 ref_clock = 40e6  # Hz
 scale_factor = ref_clock / (2 ** 28)
 inductance = 18e-6  # H
-channel_num = 8      # 2 FDCs × 4 mux channels
+channel_num = 4      # 2 FDCs × 4 mux channels
 
 def raw_to_capacitance(raw):
     freq = raw * scale_factor
@@ -23,7 +23,7 @@ def raw_to_capacitance(raw):
     return cap_F * 1e12  # pF
 
 # Serial setup
-ser = serial.Serial("COM3", 9600, timeout=1)
+ser = serial.Serial("COM9", 9600, timeout=1)
 
 buffer_len = 100
 start_time = time.time()

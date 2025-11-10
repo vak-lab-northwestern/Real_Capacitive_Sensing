@@ -6,7 +6,7 @@ import numpy as np
 
 # === PATHS ===
 csvfolder = "data"           # folder containing CSV logs
-data = ["11072025_32_CH_Test.csv"]   # replace with your actual filename
+data = ["11102025_nomux_test1_CH0.csv"]   # replace with your actual filename
 plotfolder = "MUX_plots"     # folder for saving plots
 
 # === LOOP THROUGH FILES ===

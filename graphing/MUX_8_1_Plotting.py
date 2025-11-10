@@ -2,23 +2,25 @@ import serial
 import csv
 import math
 import time
+import threading
 from datetime import datetime
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, ttk, messagebox
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from collections import deque
 import numpy as np
 
-# FDC2214 constants 
-REF_CLOCK = 40e6  # Hz
+# --- Constants ---
+REF_CLOCK = 40e6
 SCALE_FACTOR = REF_CLOCK / (2 ** 28)
-INDUCTANCE = 18e-6  # H
-CHANNEL_NUM = 32    # total MUXed channels
-
-# Plot settings
-PLOT_WINDOW_S = 30  # seconds of data to display
-MAX_POINTS = 1000   # maximum points to keep in memory per channel
+INDUCTANCE = 18e-6
+CHANNEL_NUM = 32
+PORT = "COM9"
+BAUD = 115200
+TIMEOUT_S = 0.1
+MAX_POINTS = 1000
+PLOT_WINDOW_S = 30
 
 def raw_to_capacitance(raw):
     freq = raw * SCALE_FACTOR
@@ -27,145 +29,145 @@ def raw_to_capacitance(raw):
     cap_F = 1.0 / ((2 * math.pi * freq) ** 2 * INDUCTANCE)
     return cap_F * 1e12  # pF
 
-# --- Serial setup ---
-PORT = "COM9"      # Change to your Nano's port
-BAUD = 115200
-TIMEOUT_S = 0.1    # Shorter timeout for responsive plotting
-
-def choose_output_file():
-    root = tk.Tk()
-    root.withdraw()
-    file_path = filedialog.asksaveasfilename(
-        defaultextension=".csv",
-        filetypes=[("CSV files", "*.csv")],
-        title="Select CSV file to save readings"
-    )
-    root.destroy()
-    return file_path
-
 class LivePlotter:
-    def __init__(self, num_channels, window_s):
+    def __init__(self, root, num_channels, window_s):
+        self.root = root
         self.num_channels = num_channels
         self.window_s = window_s
         
-        # Store data for each channel
         self.times = deque(maxlen=MAX_POINTS)
         self.data = [deque(maxlen=MAX_POINTS) for _ in range(num_channels)]
         
-        # Create single plot with all channels
-        self.fig, self.ax = plt.subplots(figsize=(12, 8))
-        self.fig.suptitle('FDC2214 Live Capacitance Readings - All Channels', fontsize=14)
+        self.fig, self.ax = plt.subplots(figsize=(10, 6))
+        self.fig.suptitle('FDC2214 Live Capacitance Readings')
         
-        # Generate colors for each channel
-        colors = plt.cm.tab20(np.linspace(0, 1, 20))
-        colors2 = plt.cm.tab20b(np.linspace(0, 1, 12))
-        all_colors = np.vstack([colors, colors2])
-        
-        # Initialize lines for each channel
+        colors = plt.cm.tab20(np.linspace(0, 1, num_channels))
         self.lines = []
         for i in range(num_channels):
-            line, = self.ax.plot([], [], linewidth=1.0, label=f'CH{i}', 
-                                color=all_colors[i], alpha=0.7)
+            (line,) = self.ax.plot([], [], label=f"CH{i}", color=colors[i % len(colors)])
             self.lines.append(line)
         
-        self.ax.set_xlabel('Time (s)', fontsize=12)
-        self.ax.set_ylabel('Capacitance (pF)', fontsize=12)
-        self.ax.grid(True, alpha=0.3)
+        self.ax.set_xlabel("Time (s)")
+        self.ax.set_ylabel("Capacitance (pF)")
+        self.ax.grid(True)
+        self.ax.legend(loc="upper right", fontsize=8)
         
-        # Create legend outside plot area
-        self.ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), 
-                      fontsize=8, ncol=2)
+        # Embed in Tkinter
+        self.canvas = FigureCanvasTkAgg(self.fig, master=root)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas.draw()
         
-        plt.tight_layout()
-        
-    def update(self, timestamp, capacitances):
-        """Add new data point"""
+    def update(self, timestamp, caps):
         self.times.append(timestamp)
-        for i, cap in enumerate(capacitances):
+        for i, cap in enumerate(caps):
             self.data[i].append(cap)
-    
+        self.refresh_plot()
+        
     def refresh_plot(self):
-        """Update all plot lines"""
-        if len(self.times) == 0:
+        if not self.times:
             return
         
-        times_array = np.array(self.times)
-        current_time = times_array[-1]
+        t = np.array(self.times)
+        current_time = t[-1]
+        mask = t >= (current_time - self.window_s)
+        t_visible = t[mask]
         
-        # Only show data within the time window
-        mask = times_array >= (current_time - self.window_s)
-        visible_times = times_array[mask]
-        
-        all_data = []
-        
-        # Update each channel
+        all_vals = []
         for i in range(self.num_channels):
-            data_array = np.array(self.data[i])
-            visible_data = data_array[mask]
-            
-            if len(visible_times) > 0:
-                self.lines[i].set_data(visible_times, visible_data)
-                all_data.extend(visible_data)
+            y = np.array(self.data[i])[mask]
+            if len(y) > 0:
+                self.lines[i].set_data(t_visible, y)
+                all_vals.extend(y)
         
-        # Auto-scale axes
-        if len(visible_times) > 0:
+        if len(t_visible) > 0:
             self.ax.set_xlim(max(0, current_time - self.window_s), current_time + 1)
-            
-            if len(all_data) > 0:
-                data_min, data_max = min(all_data), max(all_data)
-                margin = (data_max - data_min) * 0.1 if data_max > data_min else 1
-                self.ax.set_ylim(data_min - margin, data_max + margin)
+            if len(all_vals) > 0:
+                ymin, ymax = min(all_vals), max(all_vals)
+                margin = (ymax - ymin) * 0.1 if ymax > ymin else 1
+                self.ax.set_ylim(ymin - margin, ymax + margin)
         
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        self.canvas.draw_idle()
 
-def main():
-    file_path = choose_output_file()
-    if not file_path:
-        print("[INFO] Logging cancelled (no file selected).")
-        return
-    
-    print(f"[INFO] Opening serial port {PORT}...")
-    ser = serial.Serial(PORT, BAUD, timeout=TIMEOUT_S)
-    print(f"[INFO] Serial connected to {PORT}")
-    
-    # Initialize live plotter
-    plotter = LivePlotter(CHANNEL_NUM, PLOT_WINDOW_S)
-    plt.ion()  # Enable interactive mode
-    plt.show()
-    
-    # Open CSV file
-    with open(file_path, mode="w", newline="") as f:
-        writer = csv.writer(f)
-        header = ["timestamp_s"] + [f"CH{i}_pF" for i in range(CHANNEL_NUM)]
-        writer.writerow(header)
+class MuxLoggerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("MUX Capacitance Live Plot")
         
-        start_time = time.time()
-        duration_s = 120  # <-- how long to record (seconds)
-        last_plot_update = 0
-        plot_update_interval = 0.1  # Update plot every 100ms
+        self.plotter = LivePlotter(root, CHANNEL_NUM, PLOT_WINDOW_S)
         
-        print(f"[INFO] Logging for {duration_s} seconds to {file_path} ...")
-        print("[INFO] Close the plot window to stop logging early.")
+        # Buttons
+        self.control_frame = tk.Frame(root)
+        self.control_frame.pack(pady=10)
         
+        self.start_btn = ttk.Button(self.control_frame, text="Start Logging", command=self.toggle_logging)
+        self.start_btn.pack(side=tk.LEFT, padx=10)
+        
+        self.file_btn = ttk.Button(self.control_frame, text="Select CSV File", command=self.choose_output_file)
+        self.file_btn.pack(side=tk.LEFT, padx=10)
+        
+        self.status_label = ttk.Label(self.control_frame, text="Status: Idle")
+        self.status_label.pack(side=tk.LEFT, padx=10)
+        
+        self.is_logging = False
+        self.ser = None
+        self.log_thread = None
+        self.file_path = None
+        
+    def choose_output_file(self):
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Save data to CSV"
+        )
+        if path:
+            self.file_path = path
+            self.status_label.config(text=f"Selected file: {path.split('/')[-1]}")
+        
+    def toggle_logging(self):
+        if not self.is_logging:
+            if not self.file_path:
+                messagebox.showwarning("No File", "Please select a CSV output file first.")
+                return
+            self.start_logging()
+        else:
+            self.stop_logging()
+    
+    def start_logging(self):
         try:
-            while plt.fignum_exists(plotter.fig.number):
-                now = time.time()
-                elapsed = now - start_time
-                
-                if elapsed > duration_s:
-                    print("[INFO] Logging time limit reached.")
-                    break
-                
-                raw_line = ser.readline().decode(errors="ignore").strip()
+            self.ser = serial.Serial(PORT, BAUD, timeout=TIMEOUT_S)
+        except Exception as e:
+            messagebox.showerror("Serial Error", str(e))
+            return
+        
+        self.is_logging = True
+        self.start_time = time.time()
+        self.status_label.config(text="Status: Logging...")
+        self.start_btn.config(text="Stop Logging")
+        
+        self.log_thread = threading.Thread(target=self.log_loop, daemon=True)
+        self.log_thread.start()
+    
+    def stop_logging(self):
+        self.is_logging = False
+        self.start_btn.config(text="Start Logging")
+        self.status_label.config(text="Status: Stopped")
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+    
+    def log_loop(self):
+        with open(self.file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            header = ["timestamp_s"] + [f"CH{i}_pF" for i in range(CHANNEL_NUM)]
+            writer.writerow(header)
+            
+            while self.is_logging:
+                raw_line = self.ser.readline().decode(errors="ignore").strip()
                 if not raw_line:
-                    # Give matplotlib a chance to process events
-                    plt.pause(0.001)
                     continue
                 
                 parts = raw_line.split(",")
                 if len(parts) != CHANNEL_NUM:
-                    continue  # skip incomplete/malformed lines
+                    continue
                 
                 try:
                     raw_vals = [int(p) for p in parts]
@@ -173,28 +175,17 @@ def main():
                     continue
                 
                 caps = [raw_to_capacitance(r) for r in raw_vals]
-                timestamp = elapsed
+                timestamp = time.time() - self.start_time
                 
-                # Write to CSV
                 writer.writerow([timestamp] + caps)
+                self.plotter.update(timestamp, caps)
                 
-                # Update plotter data
-                plotter.update(timestamp, caps)
-                
-                # Refresh plot at specified interval
-                if now - last_plot_update >= plot_update_interval:
-                    plotter.refresh_plot()
-                    last_plot_update = now
-                    
-        except KeyboardInterrupt:
-            print("\n[INFO] Logging stopped by user.")
-        finally:
-            ser.close()
-            plt.ioff()
-            plt.close('all')
-            print("[INFO] Serial closed.")
-            print(f"[INFO] CSV saved → {file_path}")
-            print(f"[INFO] Total time logged: {elapsed:.2f} seconds")
+                time.sleep(0.05)  # reduce CPU load
+        
+        self.stop_logging()
 
+# --- Run ---
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = MuxLoggerApp(root)
+    root.mainloop()
