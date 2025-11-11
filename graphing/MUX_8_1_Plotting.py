@@ -9,9 +9,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog
 
-# -------------------------------
 # FDC2214 constants & parameters
-# -------------------------------
 ref_clock = 40e6  # Hz
 scale_factor = ref_clock / (2 ** 28)
 inductance = 18e-6  # H
@@ -24,20 +22,21 @@ def raw_to_capacitance(raw):
     cap_F = 1.0 / ((2 * math.pi * freq) ** 2 * inductance)
     return cap_F * 1e12  # pF
 
-# -------------------------------
 # Serial setup
+<<<<<<< HEAD:graphing/MUX_Plotting.py
 # -------------------------------
 # Update COM port as needed
 ser = serial.Serial("/dev/cu.usbserial-210", 9600, timeout=1)
+=======
+ser = serial.Serial("COM9", 9600, timeout=1)
+>>>>>>> 435006c67463b2880469c8c927f5999cc119ee0e:graphing/MUX_8_1_Plotting.py
 
 buffer_len = 100
 start_time = time.time()
 time_buffer = deque([start_time - (buffer_len - i) * 0.1 for i in range(buffer_len)], maxlen=buffer_len)
 ch = [deque([0.0] * buffer_len) for _ in range(channel_num)]
 
-# -------------------------------
 # Matplotlib setup
-# -------------------------------
 plt.ion()
 fig, ax = plt.subplots()
 lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(channel_num)]
@@ -48,9 +47,7 @@ ax.set_title("Live Capacitance from Dual FDC2214 + 4:1 MUX")
 ax.grid(True)
 fig.subplots_adjust(bottom=0.18)
 
-# -------------------------------
 # Logging setup
-# -------------------------------
 logging_enabled = False
 csv_file = None
 csv_writer = None
@@ -124,9 +121,7 @@ btn_stop = Button(ax_stop, "Stop Logging")
 btn_start.on_clicked(start_logging)
 btn_stop.on_clicked(stop_logging)
 
-# -------------------------------
 # Serial reading thread
-# -------------------------------
 def serial_worker():
     global logging_enabled, csv_writer, csv_file
     while True:
@@ -172,9 +167,7 @@ def serial_worker():
 t = threading.Thread(target=serial_worker, daemon=True)
 t.start()
 
-# -------------------------------
 # Live plotting loop
-# -------------------------------
 try:
     while True:
         t_vals = [t - start_time for t in time_buffer]
