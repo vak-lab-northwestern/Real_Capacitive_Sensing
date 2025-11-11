@@ -1,4 +1,6 @@
 import serial
+import matplotlib
+matplotlib.use('TkAgg')  # Use TkAgg backend for better macOS button responsiveness
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 from collections import deque
@@ -24,7 +26,7 @@ def raw_to_capacitance(raw):
 
 # Serial setup (adjust port as needed)
 try:
-    ser = serial.Serial("/dev/cu.usbmodem2101", 115200, timeout=1)
+    ser = serial.Serial("/dev/cu.usbserial-210", 9600,timeout=1)
     print("[INFO] Serial connection established")
 except Exception as e:
     print(f"[ERROR] Could not connect to serial port: {e}")
@@ -58,7 +60,7 @@ print("[INFO] Logging system initialized. Click 'Start Logging' to begin data co
 def generate_filename():
     """Generate automatic filename with timestamp"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"../data/10082025_singleconfig8_pressure_cap_CH3_CH7.csv"
+    return f"../data/11042025_yarncross_4ply_company_singleconfig8_pressure_cap.csv"
 
 def start_logging(event):
     global logging_enabled, csv_file, csv_writer
@@ -84,7 +86,8 @@ def start_logging(event):
         logging_enabled = True
         btn_start.label.set_text("Logging: ON")
         btn_start.color = "lightgreen"
-        fig.canvas.draw_idle()
+        fig.canvas.draw()  # Immediate update for button state
+        fig.canvas.flush_events()  # Process GUI events
         
     except Exception as e:
         print(f"[ERROR] Could not open file: {e}")
@@ -102,7 +105,8 @@ def stop_logging(event):
     # Reset button states
     btn_start.label.set_text("Start Logging")
     btn_start.color = "0.85"
-    fig.canvas.draw_idle()
+    fig.canvas.draw()  # Immediate update for button state
+    fig.canvas.flush_events()  # Process GUI events
     
     # Close and cleanup CSV file
     if csv_file:
@@ -129,6 +133,20 @@ btn_stop.on_clicked(stop_logging)
 # Ensure the plot shows up
 fig.subplots_adjust(bottom=0.18)
 plt.show(block=False)
+
+# Bring figure to front and ensure it's ready for interactions
+try:
+    manager = plt.get_current_fig_manager()
+    if hasattr(manager, 'window'):
+        manager.window.wm_attributes('-topmost', 1)  # Bring to front
+        manager.window.wm_attributes('-topmost', 0)  # Allow it to go back
+except:
+    pass
+
+# Small delay to ensure GUI is fully initialized
+time.sleep(0.1)
+fig.canvas.draw()
+plt.pause(0.1)  # Give GUI time to process initial draw
 
 def serial_worker():
     global logging_enabled, csv_writer, csv_file
@@ -167,6 +185,7 @@ def serial_worker():
                         # Reset button state on error
                         btn_start.label.set_text("Start Logging")
                         btn_start.color = "0.85"
+                        fig.canvas.draw()  # Update button state immediately
         except Exception as e:
             print(f"Serial error: {e}")
             continue

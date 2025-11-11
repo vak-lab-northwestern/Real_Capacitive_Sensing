@@ -1,6 +1,18 @@
 import csv
 import os
 import matplotlib.pyplot as plt
+<<<<<<< HEAD
+
+csvfolder = "data"
+data = ["11042025_yarncross_4ply_company_singleconfig8_pressure_cap.csv"]
+plotfolder = "MUX_plots"
+
+
+channels_to_plot = [5,6]   # column indexes to plot (0 = time, 1 = first channel, etc.)
+
+# colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
+
+
 from cmcrameri import cm
 import numpy as np
 

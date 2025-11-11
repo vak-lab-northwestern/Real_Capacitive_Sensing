@@ -29,6 +29,10 @@ def raw_to_capacitance(raw):
     cap_F = 1.0 / ((2 * math.pi * freq) ** 2 * INDUCTANCE)
     return cap_F * 1e12  # pF
 
+# Serial setup
+# Update COM port as needed
+ser = serial.Serial("/dev/cu.usbserial-210", 9600, timeout=1)
+#ser = serial.Serial("COM9", 9600, timeout=1)
 class LivePlotter:
     def __init__(self, root, num_channels, window_s):
         self.root = root
@@ -87,6 +91,7 @@ class LivePlotter:
                 self.ax.set_ylim(ymin - margin, ymax + margin)
         
         self.canvas.draw_idle()
+>>>>>>> 5eba06d3f266f56238bb9a409ea67ab47445726c
 
 class MuxLoggerApp:
     def __init__(self, root):
