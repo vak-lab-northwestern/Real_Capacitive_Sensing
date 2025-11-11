@@ -91,7 +91,6 @@ class LivePlotter:
                 self.ax.set_ylim(ymin - margin, ymax + margin)
         
         self.canvas.draw_idle()
->>>>>>> 5eba06d3f266f56238bb9a409ea67ab47445726c
 
 class MuxLoggerApp:
     def __init__(self, root):
