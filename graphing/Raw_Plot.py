@@ -1,7 +1,7 @@
 import csv
 import os
-import numpy as np
 import matplotlib.pyplot as plt
+<<<<<<< HEAD
 
 csvfolder = "data"
 data = ["11042025_yarncross_4ply_company_singleconfig8_pressure_cap.csv"]
@@ -13,60 +13,81 @@ channels_to_plot = [5,6]   # column indexes to plot (0 = time, 1 = first channel
 # colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
 
+from cmcrameri import cm
+import numpy as np
 
+# === PATHS ===
+csvfolder = "data"           # folder containing CSV logs
+data = ["11102025_nomux_test1_CH0.csv"]   # replace with your actual filename
+plotfolder = "MUX_plots"     # folder for saving plots
+
+# === LOOP THROUGH FILES ===
 for csvfilename in data:
     file_path = os.path.join(csvfolder, csvfilename)
     if not os.path.exists(file_path):
         print(f"⚠️ Missing file: {csvfilename}")
         continue
-    plt.figure(figsize=(10, 6))
-    # Load raw data
-    times = []
-    channel_data = {ch: [] for ch in channels_to_plot}
 
+    # Create figure
+    plt.figure(figsize=(12, 6))
+
+    # Load CSV header to detect channels automatically
     with open(file_path, "r") as infile:
         csvreader = csv.reader(infile)
-        next(csvreader, None)  # skip header
+        header = next(csvreader)
+        num_columns = len(header)
+        times = []
+        channel_data = {i: [] for i in range(1, num_columns)}  # skip timestamp (col 0)
+
         for row in csvreader:
+            if len(row) != num_columns:
+                continue  # skip malformed lines
             try:
-                t = float(row[0])
-                times.append(t)
-                for ch in channels_to_plot:
-                    channel_data[ch].append(float(row[ch]))
-            except (ValueError, IndexError):
+                times.append(float(row[0]))
+                for i in range(1, num_columns):
+                    channel_data[i].append(float(row[i]))
+            except ValueError:
                 continue
 
     if not times:
         print(f"⚠️ No valid data in {csvfilename}")
         continue
 
-    # Normalize time to start at 0
-    t0 = times[0] + 110
+    # Normalize time
+    t0 = times[0]
     times = [t - t0 for t in times]
-    channel_name = csvfilename.replace("20250911", "").replace(".csv", "").replace("_", " ")
 
-    # Plot each channel
-    for idx, ch in enumerate(channels_to_plot):
-        raw = idx+4
-        num = str(raw)
+    # Generate colors automatically
+    num_channels = len(channel_data)
+    colors = cm.batlow(np.linspace(0, 1, num_channels))
+
+    # Plot all channels
+    for idx, ch in enumerate(channel_data):
         plt.plot(
-            times, channel_data[ch],
-            label=f"{"CH" + num}",
-            linewidth=1.2
+            times,
+            channel_data[ch],
+            label=header[ch],   # use header names as labels
+            linewidth=1.2,
+            color=colors[idx]
         )
 
-    # plt.ylim(500,1500)
+    # Plot settings
     plt.xlabel("Time (s)")
     plt.ylabel("Capacitance (pF)")
-    title_name = "4x4 MUX Single Config"
-    plt.title(title_name)
-    plt.legend(loc="upper left")
-    plt.grid(False)
+    plt.title(f"Multiplexed FDC2214 Data ({csvfilename})")
+    plt.legend(loc="upper left", ncol=4, fontsize=8)
+    plt.grid(True)
     plt.tight_layout()
-    # plt.show()
-    outfile = os.path.join(plotfolder, f"{channel_name}.png")
+
+    # Create plot folder if missing
+    if not os.path.exists(plotfolder):
+        os.makedirs(plotfolder)
+
+    outfile = os.path.join(plotfolder, f"{os.path.splitext(csvfilename)[0]}.png")
     plt.savefig(outfile, dpi=300)
     plt.close()
+    print(f"✅ Saved plot → {outfile}")
 
-# plt.xlim(0,120)
-# plt.ylim(100, 600)
+# === OLD CODE COMMENTED OUT ===
+# channels_to_plot = [0,1,2,...]
+# manually specifying channels is no longer needed

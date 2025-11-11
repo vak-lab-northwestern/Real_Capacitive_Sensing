@@ -1,193 +1,196 @@
 import serial
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
-from collections import deque
-import math
 import csv
+import math
 import time
 import threading
+from datetime import datetime
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, ttk, messagebox
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from collections import deque
+import numpy as np
 
-# FDC2214 constants & parameters
-ref_clock = 40e6  # Hz
-scale_factor = ref_clock / (2 ** 28)
-inductance = 18e-6  # H
-channel_num = 8      # 2 FDCs × 4 mux channels
+# --- Constants ---
+REF_CLOCK = 40e6
+SCALE_FACTOR = REF_CLOCK / (2 ** 28)
+INDUCTANCE = 18e-6
+CHANNEL_NUM = 32
+PORT = "COM9"
+BAUD = 115200
+TIMEOUT_S = 0.1
+MAX_POINTS = 1000
+PLOT_WINDOW_S = 30
 
 def raw_to_capacitance(raw):
-    freq = raw * scale_factor
+    freq = raw * SCALE_FACTOR
     if freq <= 0:
         return 0.0
-    cap_F = 1.0 / ((2 * math.pi * freq) ** 2 * inductance)
+    cap_F = 1.0 / ((2 * math.pi * freq) ** 2 * INDUCTANCE)
     return cap_F * 1e12  # pF
 
 # Serial setup
-<<<<<<< HEAD:graphing/MUX_Plotting.py
-# -------------------------------
 # Update COM port as needed
 ser = serial.Serial("/dev/cu.usbserial-210", 9600, timeout=1)
-=======
-ser = serial.Serial("COM9", 9600, timeout=1)
->>>>>>> 435006c67463b2880469c8c927f5999cc119ee0e:graphing/MUX_8_1_Plotting.py
+#ser = serial.Serial("COM9", 9600, timeout=1)
+class LivePlotter:
+    def __init__(self, root, num_channels, window_s):
+        self.root = root
+        self.num_channels = num_channels
+        self.window_s = window_s
+        
+        self.times = deque(maxlen=MAX_POINTS)
+        self.data = [deque(maxlen=MAX_POINTS) for _ in range(num_channels)]
+        
+        self.fig, self.ax = plt.subplots(figsize=(10, 6))
+        self.fig.suptitle('FDC2214 Live Capacitance Readings')
+        
+        colors = plt.cm.tab20(np.linspace(0, 1, num_channels))
+        self.lines = []
+        for i in range(num_channels):
+            (line,) = self.ax.plot([], [], label=f"CH{i}", color=colors[i % len(colors)])
+            self.lines.append(line)
+        
+        self.ax.set_xlabel("Time (s)")
+        self.ax.set_ylabel("Capacitance (pF)")
+        self.ax.grid(True)
+        self.ax.legend(loc="upper right", fontsize=8)
+        
+        # Embed in Tkinter
+        self.canvas = FigureCanvasTkAgg(self.fig, master=root)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        self.canvas.draw()
+        
+    def update(self, timestamp, caps):
+        self.times.append(timestamp)
+        for i, cap in enumerate(caps):
+            self.data[i].append(cap)
+        self.refresh_plot()
+        
+    def refresh_plot(self):
+        if not self.times:
+            return
+        
+        t = np.array(self.times)
+        current_time = t[-1]
+        mask = t >= (current_time - self.window_s)
+        t_visible = t[mask]
+        
+        all_vals = []
+        for i in range(self.num_channels):
+            y = np.array(self.data[i])[mask]
+            if len(y) > 0:
+                self.lines[i].set_data(t_visible, y)
+                all_vals.extend(y)
+        
+        if len(t_visible) > 0:
+            self.ax.set_xlim(max(0, current_time - self.window_s), current_time + 1)
+            if len(all_vals) > 0:
+                ymin, ymax = min(all_vals), max(all_vals)
+                margin = (ymax - ymin) * 0.1 if ymax > ymin else 1
+                self.ax.set_ylim(ymin - margin, ymax + margin)
+        
+        self.canvas.draw_idle()
+>>>>>>> 5eba06d3f266f56238bb9a409ea67ab47445726c
 
-buffer_len = 100
-start_time = time.time()
-time_buffer = deque([start_time - (buffer_len - i) * 0.1 for i in range(buffer_len)], maxlen=buffer_len)
-ch = [deque([0.0] * buffer_len) for _ in range(channel_num)]
-
-# Matplotlib setup
-plt.ion()
-fig, ax = plt.subplots()
-lines = [ax.plot(list(ch[i]), label=f"CH{i}")[0] for i in range(channel_num)]
-ax.legend(ncol=2)
-ax.set_xlabel("Time (s)")
-ax.set_ylabel("Capacitance (pF)")
-ax.set_title("Live Capacitance from Dual FDC2214 + 4:1 MUX")
-ax.grid(True)
-fig.subplots_adjust(bottom=0.18)
-
-# Logging setup
-logging_enabled = False
-csv_file = None
-csv_writer = None
-log_lock = threading.Lock()
-
-print("[INFO] Logging system initialized. Click 'Start Logging' to begin data collection.")
-
-def choose_output_file():
-    root = tk.Tk()
-    root.withdraw()
-    file_path = filedialog.asksaveasfilename(
-        defaultextension=".csv",
-        filetypes=[("CSV files", "*.csv")],
-        title="Select CSV file to log to"
-    )
-    root.destroy()
-    return file_path
-
-def start_logging(event):
-    global logging_enabled, csv_file, csv_writer
-    if logging_enabled:
-        print("[DEBUG] Logging already enabled.")
-        return
-
-    fname = choose_output_file()
-    if not fname:
-        print("[INFO] Logging cancelled (no file selected).")
-        return
-
-    try:
-        csv_file = open(fname, mode="w", newline="")
-        csv_writer = csv.writer(csv_file)
-        header = ["timestamp"] + [f"CH{i}_pF" for i in range(channel_num)]
-        csv_writer.writerow(header)
-        csv_file.flush()
-        logging_enabled = True
-        print(f"[INFO] Logging started → {fname}")
-        btn_start.label.set_text("Logging: ON")
-        btn_start.color = "lightgreen"
-        fig.canvas.draw_idle()
-    except Exception as e:
-        print(f"[ERROR] Could not open file: {e}")
-        csv_file = None
-        csv_writer = None
-
-def stop_logging(event):
-    global logging_enabled, csv_file, csv_writer
-    logging_enabled = False
-    btn_start.label.set_text("Start Logging")
-    btn_start.color = "0.85"
-    fig.canvas.draw_idle()
-
-    if csv_file:
-        with log_lock:
-            try:
-                csv_file.flush()
-                csv_file.close()
-                print("[INFO] Logging stopped and file closed.")
-            except Exception as e:
-                print(f"[ERROR] Error closing file: {e}")
-        csv_file = None
-        csv_writer = None
-    else:
-        print("[INFO] Logging stopped (no open file)")
-
-# Buttons
-ax_start = plt.axes([0.7, 0.02, 0.1, 0.05])
-ax_stop = plt.axes([0.81, 0.02, 0.1, 0.05])
-btn_start = Button(ax_start, "Start Logging")
-btn_stop = Button(ax_stop, "Stop Logging")
-btn_start.on_clicked(start_logging)
-btn_stop.on_clicked(stop_logging)
-
-# Serial reading thread
-def serial_worker():
-    global logging_enabled, csv_writer, csv_file
-    while True:
+class MuxLoggerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("MUX Capacitance Live Plot")
+        
+        self.plotter = LivePlotter(root, CHANNEL_NUM, PLOT_WINDOW_S)
+        
+        # Buttons
+        self.control_frame = tk.Frame(root)
+        self.control_frame.pack(pady=10)
+        
+        self.start_btn = ttk.Button(self.control_frame, text="Start Logging", command=self.toggle_logging)
+        self.start_btn.pack(side=tk.LEFT, padx=10)
+        
+        self.file_btn = ttk.Button(self.control_frame, text="Select CSV File", command=self.choose_output_file)
+        self.file_btn.pack(side=tk.LEFT, padx=10)
+        
+        self.status_label = ttk.Label(self.control_frame, text="Status: Idle")
+        self.status_label.pack(side=tk.LEFT, padx=10)
+        
+        self.is_logging = False
+        self.ser = None
+        self.log_thread = None
+        self.file_path = None
+        
+    def choose_output_file(self):
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Save data to CSV"
+        )
+        if path:
+            self.file_path = path
+            self.status_label.config(text=f"Selected file: {path.split('/')[-1]}")
+        
+    def toggle_logging(self):
+        if not self.is_logging:
+            if not self.file_path:
+                messagebox.showwarning("No File", "Please select a CSV output file first.")
+                return
+            self.start_logging()
+        else:
+            self.stop_logging()
+    
+    def start_logging(self):
         try:
-            raw_line = ser.readline().decode(errors="ignore").strip()
-            if not raw_line:
-                continue
-
-            parts = raw_line.split(",")
-            if len(parts) != channel_num:
-                # skip malformed or incomplete lines
-                continue
-
-            try:
-                raw_vals = [int(p) for p in parts]
-            except ValueError:
-                continue
-
-            caps = [raw_to_capacitance(r) for r in raw_vals]
-            now = time.time()
-
-            for i in range(channel_num):
-                ch[i].append(caps[i])
-                ch[i].popleft()
-            time_buffer.append(now)
-
-            # Logging
-            if logging_enabled and csv_writer and csv_file:
-                timestamp = now - start_time
-                with log_lock:
-                    try:
-                        csv_writer.writerow([timestamp] + caps)
-                        csv_file.flush()
-                    except Exception as e:
-                        print(f"[ERROR] Failed to write data: {e}")
-                        logging_enabled = False
-
+            self.ser = serial.Serial(PORT, BAUD, timeout=TIMEOUT_S)
         except Exception as e:
-            print(f"[ERROR] Serial read: {e}")
-            continue
+            messagebox.showerror("Serial Error", str(e))
+            return
+        
+        self.is_logging = True
+        self.start_time = time.time()
+        self.status_label.config(text="Status: Logging...")
+        self.start_btn.config(text="Stop Logging")
+        
+        self.log_thread = threading.Thread(target=self.log_loop, daemon=True)
+        self.log_thread.start()
+    
+    def stop_logging(self):
+        self.is_logging = False
+        self.start_btn.config(text="Start Logging")
+        self.status_label.config(text="Status: Stopped")
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+    
+    def log_loop(self):
+        with open(self.file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            header = ["timestamp_s"] + [f"CH{i}_pF" for i in range(CHANNEL_NUM)]
+            writer.writerow(header)
+            
+            while self.is_logging:
+                raw_line = self.ser.readline().decode(errors="ignore").strip()
+                if not raw_line:
+                    continue
+                
+                parts = raw_line.split(",")
+                if len(parts) != CHANNEL_NUM:
+                    continue
+                
+                try:
+                    raw_vals = [int(p) for p in parts]
+                except ValueError:
+                    continue
+                
+                caps = [raw_to_capacitance(r) for r in raw_vals]
+                timestamp = time.time() - self.start_time
+                
+                writer.writerow([timestamp] + caps)
+                self.plotter.update(timestamp, caps)
+                
+                time.sleep(0.05)  # reduce CPU load
+        
+        self.stop_logging()
 
-# Start thread
-t = threading.Thread(target=serial_worker, daemon=True)
-t.start()
-
-# Live plotting loop
-try:
-    while True:
-        t_vals = [t - start_time for t in time_buffer]
-        for i in range(channel_num):
-            lines[i].set_data(t_vals, list(ch[i]))
-        ax.relim()
-        ax.autoscale_view()
-        fig.canvas.flush_events()
-        plt.pause(0.05)
-except KeyboardInterrupt:
-    pass
-finally:
-    if csv_file:
-        with log_lock:
-            try:
-                csv_file.close()
-            except Exception:
-                pass
-    try:
-        ser.close()
-    except Exception:
-        pass
-    print("Exiting.")
+# --- Run ---
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = MuxLoggerApp(root)
+    root.mainloop()

@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <stdio.h>
+
 #include "FDC2214.h"
 
 /*
@@ -9,7 +11,7 @@
   Output format to Serial (one line per full scan):
   CH0,CH1,CH2,CH3,CH4,CH5,CH6,CH7\n
   where:
-    CH0–CH3 = FDC1 readings for MUX states 0–7
+    CH0–CH3 = FDC1 readings for MUX states 0–7  
 */
 
 // MUX pin mapping
@@ -18,11 +20,12 @@
 #define MUX1_S2 5   // FDC1 select bit 2 (MSB)
     
 // Constants
-#define TOTAL_MUX_CHANNELS 8
-#define SETTLE_MS 10       
+#define TOTAL_MUX_STATES   8
+#define FDC_CHANNELS       4
+#define TOTAL_READINGS     (TOTAL_MUX_STATES * FDC_CHANNELS)
+#define SETTLE_US 5500       
 
-FDC2214 fdc1(FDC2214_I2C_ADDR_0); // Address 0x2A (ADDR pin LOW)
-// FDC2214 fdc2(FDC2214_I2C_ADDR_1); // Address 0x2B (ADDR pin HIGH)
+ FDC2214 fdc1(FDC2214_I2C_ADDR_0); // Address 0x2B (ADDR pin HIGH)
 
 void setMuxPins(int s0, int s1, int s2, int state) {
   digitalWrite(s0, state & 0x01);
@@ -30,14 +33,30 @@ void setMuxPins(int s0, int s1, int s2, int state) {
   digitalWrite(s2, (state >> 2) & 0x01);
 }
 
+
+// CSV recording 
+void csv_recording() {
+  
+}
+
 void initFDC(FDC2214 &fdc, const char *name) {
-  bool ok = fdc.begin(0x3, 0x4, 0x5, false);
+  bool ok = fdc.begin(0xF, 0x6, 0x5, false); 
   if (ok) Serial.print(name), Serial.println(" OK");
   else Serial.print(name), Serial.println(" FAIL");
 }
 
+// void printFDC(FDC2214& fdc) {
+//   int fdc_chan = 4;
+//   for (int i = 0; i < fdc_chan; i++) {
+//     Serial.print(fdc.getReading28(i));
+//     Serial.print(",");
+//   } 
+//   Serial.println();
+// }
+
 void setup() {
   Wire.begin();
+  Wire.setClock(400000); // increasing i2c clock speed
   Serial.begin(115200);
 
   pinMode(MUX1_S0, OUTPUT);
@@ -53,20 +72,21 @@ void setup() {
 }
 
 void loop() {
-  unsigned long readings[TOTAL_MUX_CHANNELS];
+  uint32_t readings[TOTAL_READINGS];
+  int idx = 0;
 
-  for (int muxState = 0; muxState < TOTAL_MUX_CHANNELS; muxState++) {
+  for (int muxState = 0; muxState < TOTAL_MUX_STATES; muxState++) {
     setMuxPins(MUX1_S0, MUX1_S1, MUX1_S2, muxState);
+    delayMicroseconds(SETTLE_US);
 
-    delayMicroseconds(SETTLE_MS);
-
-    readings[muxState] = fdc1.getReading28(0);
+    for (int ch = 0; ch < FDC_CHANNELS; ch++) {
+      readings[idx++] = fdc1.getReading28(ch);
+    }
   }
 
-  // Print CSV
-  for (int i = 0; i < TOTAL_MUX_CHANNELS; i++) {
+  for (int i = 0; i < TOTAL_READINGS; i++) {
     Serial.print(readings[i]);
-    if (i < TOTAL_MUX_CHANNELS - 1) Serial.print(",");
+    if (i < TOTAL_READINGS - 1) Serial.print(",");
   }
-  Serial.println(); 
+  Serial.println();
 }
