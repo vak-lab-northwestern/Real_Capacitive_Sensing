@@ -112,7 +112,7 @@ class MuxLoggerApp:
         self.ser = None
         self.log_thread = None
         self.file_path = None
-    
+        
     def choose_output_file(self):
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
