@@ -60,35 +60,31 @@ void loop() {
   uint32_t rows[NUM_ROWS];
   uint32_t cols[NUM_COLS];
 
-  // ROW SCAN 
   for (int r = 0; r < NUM_ROWS; r++) {
     selectRow(r);
-    selectCol(0);
+    selectCol(r);
     delayMicroseconds(ROW_SETTLE_US);
-
-    discardPipeline();                // IMPORTANT
+    discardPipeline();
     rows[r] = fdc.getReading28(0);
   }
 
-  // COLUMN SCAN 
-  selectRow(0);
-
   for (int c = 0; c < NUM_COLS; c++) {
+    selectRow(c);
     selectCol(c);
     delayMicroseconds(COL_SETTLE_US);
-
-    discardPipeline();                // IMPORTANT
+    discardPipeline();
     cols[c] = fdc.getReading28(1);
   }
 
-  // CSV OUTPUT 
   for (int i = 0; i < NUM_ROWS; i++) {
     Serial.print(rows[i]);
     Serial.print(",");
   }
+
   for (int i = 0; i < NUM_COLS; i++) {
     Serial.print(cols[i]);
     if (i < NUM_COLS - 1) Serial.print(",");
   }
+
   Serial.println();
 }
