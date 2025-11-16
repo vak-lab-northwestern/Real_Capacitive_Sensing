@@ -28,7 +28,7 @@ void setMux(int s0, int s1, int s2, int state) {
 void selectRow(int r) { setMux(ROW_S0, ROW_S1, ROW_S2, r & 0x07); }
 void selectCol(int c) { setMux(COL_S0, COL_S1, COL_S2, c & 0x07); }
 
-void discardPipeline() {
+void discardfirstline() {
   fdc.getReading28(0);
   delay(DISCARD_DELAY_MS);
   fdc.getReading28(1);
@@ -64,7 +64,7 @@ void loop() {
     selectRow(r);
     selectCol(r);
     delayMicroseconds(ROW_SETTLE_US);
-    discardPipeline();
+    discardfirstline();
     rows[r] = fdc.getReading28(0);
   }
 
@@ -72,7 +72,7 @@ void loop() {
     selectRow(c);
     selectCol(c);
     delayMicroseconds(COL_SETTLE_US);
-    discardPipeline();
+    discardfirstline();
     cols[c] = fdc.getReading28(1);
   }
 
