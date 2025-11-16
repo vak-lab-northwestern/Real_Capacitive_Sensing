@@ -1,14 +1,13 @@
 import csv
 import os
 import matplotlib.pyplot as plt
-<<<<<<< HEAD
 
 csvfolder = "data"
-data = ["11042025_yarncross_4ply_company_singleconfig8_pressure_cap.csv"]
+data = ["11132025_nomux_Node1_CH0_CH1_test2.csv"]
 plotfolder = "MUX_plots"
 
 
-channels_to_plot = [5,6]   # column indexes to plot (0 = time, 1 = first channel, etc.)
+channels_to_plot = [2,3]   # column indexes to plot (0 = time, 1 = first channel, etc.)
 
 # colors = cm.batlow(np.linspace(0, 1, len(channels_to_plot)))
 
@@ -78,15 +77,16 @@ for csvfilename in data:
     plt.legend(loc="upper left", ncol=4, fontsize=8)
     plt.grid(True)
     plt.tight_layout()
+    plt.show()
 
-    # Create plot folder if missing
-    if not os.path.exists(plotfolder):
-        os.makedirs(plotfolder)
+    # # Create plot folder if missing
+    # if not os.path.exists(plotfolder):
+    #     os.makedirs(plotfolder)
 
-    outfile = os.path.join(plotfolder, f"{os.path.splitext(csvfilename)[0]}.png")
-    plt.savefig(outfile, dpi=300)
-    plt.close()
-    print(f"✅ Saved plot → {outfile}")
+    # outfile = os.path.join(plotfolder, f"{os.path.splitext(csvfilename)[0]}.png")
+    # plt.savefig(outfile, dpi=300)
+    # plt.close()
+    # print(f"✅ Saved plot → {outfile}")
 
 # === OLD CODE COMMENTED OUT ===
 # channels_to_plot = [0,1,2,...]

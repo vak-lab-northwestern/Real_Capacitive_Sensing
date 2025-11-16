@@ -1,92 +1,92 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <stdio.h>
-
 #include "FDC2214.h"
 
-/*
-  FDC2214 Continuous Time-Division Multiplexing (TDM)
-  Each FDC2214 uses its own 8:1 analog multiplexer.
+// Array size + timing
+#define NUM_ROWS      8       // adjustable
+#define NUM_COLS      8       // adjustable
+#define ROW_SETTLE_US   5000  // longer settle for row switching
+#define COL_SETTLE_US   150   // shorter settle for column switching
+#define DISCARD_READ    1     // discard first read after switching
 
-  Output format to Serial (one line per full scan):
-  CH0,CH1,CH2,CH3,CH4,CH5,CH6,CH7\n
-  where:
-    CH0–CH3 = FDC1 readings for MUX states 0–7  
-*/
+// Row MUX (0–7)
+#define ROW_S0 3
+#define ROW_S1 4
+#define ROW_S2 5
 
-// MUX pin mapping
-#define MUX1_S0 3   // FDC1 select bit 0 (LSB)
-#define MUX1_S1 4   // FDC1 select bit 1 
-#define MUX1_S2 5   // FDC1 select bit 2 (MSB)
-    
-// Constants
-#define TOTAL_MUX_STATES   8
-#define FDC_CHANNELS       4
-#define TOTAL_READINGS     (TOTAL_MUX_STATES * FDC_CHANNELS)
-#define SETTLE_US 5500       
+// Column MUX (0–7)
+#define COL_S0 7
+#define COL_S1 8
+#define COL_S2 9
 
- FDC2214 fdc1(FDC2214_I2C_ADDR_0); // Address 0x2B (ADDR pin HIGH)
+FDC2214 fdc(FDC2214_I2C_ADDR_0);
 
-void setMuxPins(int s0, int s1, int s2, int state) {
-  digitalWrite(s0, state & 0x01);
-  digitalWrite(s1, (state >> 1) & 0x01);
-  digitalWrite(s2, (state >> 2) & 0x01);
+void setMux(int s0, int s1, int s2, int state) {
+  digitalWrite(s0, state & 1);
+  digitalWrite(s1, (state >> 1) & 1);
+  digitalWrite(s2, (state >> 2) & 1);
 }
 
-
-// CSV recording 
-void csv_recording() {
-  
+void selectRow(int r) {
+  setMux(ROW_S0, ROW_S1, ROW_S2, r & 0x07);
 }
 
-void initFDC(FDC2214 &fdc, const char *name) {
-  bool ok = fdc.begin(0xF, 0x6, 0x5, false); 
-  if (ok) Serial.print(name), Serial.println(" OK");
-  else Serial.print(name), Serial.println(" FAIL");
+void selectCol(int c) {
+  setMux(COL_S0, COL_S1, COL_S2, c & 0x07);
 }
-
-// void printFDC(FDC2214& fdc) {
-//   int fdc_chan = 4;
-//   for (int i = 0; i < fdc_chan; i++) {
-//     Serial.print(fdc.getReading28(i));
-//     Serial.print(",");
-//   } 
-//   Serial.println();
-// }
 
 void setup() {
   Wire.begin();
-  Wire.setClock(400000); // increasing i2c clock speed
+  Wire.setClock(400000);
   Serial.begin(115200);
-
-  pinMode(MUX1_S0, OUTPUT);
-  pinMode(MUX1_S1, OUTPUT); 
-  pinMode(MUX1_S2, OUTPUT);
-
-  setMuxPins(MUX1_S0, MUX1_S1, MUX1_S2, 0);
-
-  initFDC(fdc1, "FDC");
-
-  Serial.println("Starting multiplexed capacitance scan (RAW)...");
-  delay(100);
+  
+  pinMode(ROW_S0, OUTPUT);
+  pinMode(ROW_S1, OUTPUT);
+  pinMode(ROW_S2, OUTPUT);
+  pinMode(COL_S0, OUTPUT);
+  pinMode(COL_S1, OUTPUT);
+  pinMode(COL_S2, OUTPUT);
+  
+  selectRow(0);
+  selectCol(0);
+  
+  bool ok = fdc.begin(0xF, 0x6, 0x5, false);
+  Serial.println(ok ? "FDC READY" : "FDC FAIL");
+  Serial.println("Row_index,Column_index,Raw_Cap_Row,Raw_Cap_Column");
 }
 
 void loop() {
-  uint32_t readings[TOTAL_READINGS];
-  int idx = 0;
-
-  for (int muxState = 0; muxState < TOTAL_MUX_STATES; muxState++) {
-    setMuxPins(MUX1_S0, MUX1_S1, MUX1_S2, muxState);
-    delayMicroseconds(SETTLE_US);
-
-    for (int ch = 0; ch < FDC_CHANNELS; ch++) {
-      readings[idx++] = fdc1.getReading28(ch);
+  for (int r = 0; r < NUM_ROWS; r++) {
+    selectRow(r);
+    delayMicroseconds(ROW_SETTLE_US);
+    
+    for (int c = 0; c < NUM_COLS; c++) {
+      selectCol(c);
+      delayMicroseconds(COL_SETTLE_US);
+      
+      if (DISCARD_READ) { 
+        fdc.getReading28(0);  // remove switching noise from channel 0
+        delay(10);            // add delay between discard reads
+        fdc.getReading28(1);  // remove switching noise from channel 1
+        delay(10);            // add delay after discard
+      }
+      
+      uint32_t valRow = fdc.getReading28(0);  // Read channel 0 (row)
+      delay(10);                               // delay between channel reads
+      uint32_t valCol = fdc.getReading28(1);  // Read channel 1 (column)
+      
+      // Output: Row_index, Column_index, Raw Cap Row, Raw Cap Column
+      Serial.print(r);
+      Serial.print(",");
+      Serial.print(c);
+      Serial.print(",");
+      Serial.print(valRow);
+      Serial.print(",");
+      Serial.println(valCol);
+      
+      delay(10);
     }
   }
-
-  for (int i = 0; i < TOTAL_READINGS; i++) {
-    Serial.print(readings[i]);
-    if (i < TOTAL_READINGS - 1) Serial.print(",");
-  }
-  Serial.println();
+  
+  delay(20);
 }
