@@ -65,15 +65,15 @@ void loop() {
       delayMicroseconds(COL_SETTLE_US);
       
       if (DISCARD_READ) { 
-        fdc.getReading28(0);  // remove switching noise from channel 0
-        delay(10);            // add delay between discard reads
-        fdc.getReading28(1);  // remove switching noise from channel 1
-        delay(10);            // add delay after discard
+        fdc.getReading28(0);  
+        delay(10);           
+        fdc.getReading28(1);  
+        delay(10);            
       }
       
-      uint32_t valRow = fdc.getReading28(0);  // Read channel 0 (row)
+      uint32_t valRow = fdc.getReading28(0); 
       delay(10);                               // delay between channel reads
-      uint32_t valCol = fdc.getReading28(1);  // Read channel 1 (column)
+      uint32_t valCol = fdc.getReading28(1); 
       
       // Output: Row_index, Column_index, Raw Cap Row, Raw Cap Column
       Serial.print(r);
