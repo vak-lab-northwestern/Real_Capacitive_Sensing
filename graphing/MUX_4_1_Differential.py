@@ -8,42 +8,70 @@ import time
 import threading
 import tkinter as tk
 from tkinter import filedialog
+from cmcrameri import cm
+import numpy as np
 
-# FDC2214 constants
+# Settings
+serialPort = "COM13"
+baudrate = 115200
+channel_num = 8  # 8 multiplexed channels (4 per MUX)
+
+# Calibration constants 
 ref_clock = 40e6  # Hz
-scale_factor = ref_clock / (2 ** 28)
-inductance = 18e-6  # H
-channel_num = 2
- 
-def raw_to_capacitance(raw):
-    freq = raw * scale_factor
+scale_factor = ref_clock / (2 ** 28)   
+inductance = 18e-6  # H (your actual coil)
+C_FIXED = 14.63e-12  # Short the two wires to find C_Fixed
+
+# Conversion functions 
+def raw_to_frequency(raw):
+    return raw * scale_factor
+
+def frequency_to_total_capacitance(freq_hz):
+    return 1.0 / ((2 * math.pi * freq_hz) ** 2 * inductance)
+
+def raw_to_sensor_capacitance(raw):
+    """Convert raw data to sensor capacitance (pF) using calibrated C_FIXED."""
+    global C_FIXED
+    freq = raw_to_frequency(raw)
     if freq <= 0:
         return 0.0
-    cap_F = 1.0 / ((2 * math.pi * freq) ** 2 * inductance)
-    return cap_F * 1e12  # picofarads
+    c_total = frequency_to_total_capacitance(freq)
+    c_sense = c_total - C_FIXED
+    return c_sense * 1e12  # pF
 
-# Serial setup (adjust port as needed)
-ser = serial.Serial("COM13", 115200, timeout=1)
+# Channel title
+channel_title = f"Live Capacitance from {channel_num} Channels (2x 4:1 MUX)"
 
+# Serial setup
+ser = serial.Serial(serialPort, baudrate=baudrate, timeout=1)
+
+# Buffer setup
 buffer_len = 100
 start_time = time.time()
-time_buffer = deque(maxlen=buffer_len)  # Start empty
-ch = [deque(maxlen=buffer_len) for _ in range(channel_num)]  # Start empty
+time_buffer = deque(maxlen=buffer_len)
+ch = [deque(maxlen=buffer_len) for _ in range(channel_num)]
 
 # Plot setup
 plt.ion()
-fig, ax = plt.subplots(figsize=(10, 6))
-fig.subplots_adjust(bottom=0.15)
+fig, ax = plt.subplots(figsize=(12, 6))
+fig.subplots_adjust(bottom=0.18)
 
-# Create lines with initial data
-lines = [ax.plot([], [], label=f"CH{i}")[0] for i in range(channel_num)]
-ax.legend()
+# Create multiplexer labels matching Arduino output
+mux_labels = [
+    "MUX1_0", "MUX1_1", "MUX1_2", "MUX1_3",
+    "MUX2_0", "MUX2_1", "MUX2_2", "MUX2_3"
+]
+
+# Generate colors using cmcrameri
+colors = cm.batlow(np.linspace(0, 1, channel_num))
+
+# Create lines with MUX labels and colors
+lines = [ax.plot([], [], label=mux_labels[i], color=colors[i], linewidth=1.2)[0] for i in range(channel_num)]
+ax.legend(loc='upper right', ncol=2, fontsize=8)
 ax.set_xlabel("Time (s)")
-ax.set_ylabel("Capacitance (pF)")
-ax.set_title("Live Capacitance from FDC2214 Channels")
+ax.set_ylabel("Δ Capacitance (pF)")
+ax.set_title(channel_title) 
 ax.grid(True)
-# ax.set_xlim(0, 10)  # Initial 10 second window
-# ax.set_ylim(0, 100)  # Will auto-adjust
 
 # Logging state 
 logging_enabled = False
@@ -67,43 +95,46 @@ def choose_output_file():
 def start_logging(event):
     global logging_enabled, csv_file, csv_writer
     print("[DEBUG] Start button clicked")
-
+    
     if logging_enabled:
-        print("[DEBUG] Logging already enabled, ignoring click")
+        print("[DEBUG] Logging already enabled.")
         return
 
     fname = choose_output_file()
     if not fname:
-        print("[INFO] Logging cancelled (no file selected).")
+        print("[INFO] Logging cancelled.")
         return
 
     try:
         csv_file = open(fname, mode="w", newline="")
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(["timestamp"] + [f"CH{i}_pF" for i in range(4)])
+        csv_writer.writerow(["timestamp"] + [f"{mux_labels[i]}_pF" for i in range(channel_num)])
         csv_file.flush()
+        logging_enabled = True
+        btn_start.label.set_text("Logging: ON")
+        btn_start.color = "lightgreen"
+        btn_start.hovercolor = "lightgreen"
+        fig.canvas.draw_idle()
         print(f"[INFO] Logging started to {fname}")
     except Exception as e:
         print(f"[ERROR] Could not open file: {e}")
         csv_file = None
         csv_writer = None
-        return
 
-    logging_enabled = True
-    btn_start.label.set_text("Logging: ON")
-    btn_start.color = "lightgreen"
-    fig.canvas.draw_idle()
-    
 def stop_logging(event):
     global logging_enabled, csv_file, csv_writer
     print("[DEBUG] Stop button clicked")
     
-    logging_enabled = False
+    if not logging_enabled:
+        print("[DEBUG] Logging is not enabled, ignoring stop.")
+        return
     
+    logging_enabled = False
     btn_start.label.set_text("Start Logging")
     btn_start.color = "0.85"
+    btn_start.hovercolor = "0.85"
     fig.canvas.draw_idle()
-    
+
     if csv_file:
         with log_lock:
             try:
@@ -114,8 +145,6 @@ def stop_logging(event):
                 print(f"[ERROR] Error closing file: {e}")
         csv_file = None
         csv_writer = None
-    else:
-        print("[INFO] Logging stopped (no file was open)")
 
 # Buttons
 ax_start = plt.axes([0.7, 0.02, 0.1, 0.05])
@@ -126,7 +155,6 @@ btn_start.on_clicked(start_logging)
 btn_stop.on_clicked(stop_logging)
 
 plt.show(block=False)
-plt.draw()
 
 def serial_worker():
     global logging_enabled, csv_writer, csv_file, start_time
@@ -139,9 +167,6 @@ def serial_worker():
             if not raw_line:
                 continue
             
-            # Print raw line for debugging
-            # print(f"[DEBUG] Raw line: {raw_line}")
-            
             # Remove trailing comma and split
             parts = [p.strip() for p in raw_line.rstrip(',').split(",")]
             
@@ -152,10 +177,9 @@ def serial_worker():
                 print(f"[WARNING] Expected {channel_num} values, got {len(parts)}: {parts}")
                 continue
 
+            # Convert raw values to capacitance
             raw_vals = [int(p) for p in parts]
-            caps = [raw_to_capacitance(r) for r in raw_vals]
-            
-            # print(f"[DEBUG] Capacitances: {[f'{c:.2f}' for c in caps]} pF")
+            caps = [raw_to_sensor_capacitance(r) for r in raw_vals]
 
             # Update buffers
             now = time.time()
@@ -169,8 +193,10 @@ def serial_worker():
             if logging_enabled and csv_writer and csv_file:
                 with log_lock:
                     try:
-                        csv_writer.writerow([elapsed] + caps)
+                        csv_writer.writerow([f"{elapsed:.3f}"] + [f"{c:.6f}" for c in caps])
                         csv_file.flush()
+                        # Uncomment for debugging:
+                        # print(f"[DEBUG] Logged: {elapsed:.3f}s, {caps}")
                     except Exception as e:
                         print(f"[ERROR] Failed to write data: {e}")
                         logging_enabled = False
@@ -203,7 +229,7 @@ try:
         
         fig.canvas.draw_idle()
         fig.canvas.flush_events()
-        plt.pause(0.1)
+        plt.pause(0.05)
         
 except KeyboardInterrupt:
     print("\n[INFO] Interrupted by user")

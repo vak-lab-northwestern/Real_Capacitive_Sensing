@@ -9,22 +9,23 @@
   ADDR_0 = 0x2A
   ADDR_1 = 0x2B
 */
-FDC2214 capsense0(FDC2214_I2C_ADDR_0); 
+FDC2214 capsense0(FDC2214_I2C_ADDR_1); 
 // FDC2214 capsense1(FDC2214_I2C_ADDR_1);
 
 // Variable definition
-#define CHAN_COUNT 4
+#define CHAN_COUNT 2
 
 void setup() {
   
   /* Initializing I2C communication protocal */
   Wire.begin();
+  Wire.setClock(400000);
   
   /* Configuring baud rate */
-  Serial.begin(9600);
+  Serial.begin(115200);
   
-  /* Setup first four channels, autoscan with 4 channels, deglitch at 10MHz, internal oscillator */
-  bool capO = capsense0.begin(0xF, 0x6, 0x5, true); 
+  /* Setup first four channels, autoscan with 4 channels, deglitch at 10MHz, external oscillator */
+  bool capO = capsense0.begin(0x3, 0x4, 0x5, false); 
   // bool cap1 = capsense1.begin(0xF, 0x6, 0x5, true); 
 
   /* Checking if both sensors are being read on the same communication bus */
@@ -49,7 +50,7 @@ void loop() {
   /* Printing results for Chip 0 (0x2A) in Python readable format */
   for (int i = 0; i < CHAN_COUNT; i++) {
     Serial.print(capa0[i]);
-    Serial.print(", ");
+    if (i < CHAN_COUNT - 1) Serial.print(", ");
   }
 
   /* Printing results for Chip 0 (0x2B) in Python readable format */

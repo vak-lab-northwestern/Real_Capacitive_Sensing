@@ -12,10 +12,10 @@ from cmcrameri import cm
 
 
 # Settings
-serialPort = "COM8"
+serialPort = "COM13"
 baudrate = 115200
-channel_num = 4
-channel_title = "Live Capacitance from 4 Channels" 
+channel_num = 2
+channel_title = "Live Capacitance from 2 Channels" 
 
 #  Calibration constants 
 ref_clock = 40e6  # Hz
