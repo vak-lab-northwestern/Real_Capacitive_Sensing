@@ -9,9 +9,9 @@ import threading
 import os
 
 # Settings
-serialPort = "/dev/cu.usbmodem2101"
+serialPort = "/dev/cu.usbserial-210"
 baudrate = 115200
-channel_num = 4
+channel_num = 8
 
 # Calibration constants 
 ref_clock = 40e6  # Hz
@@ -84,7 +84,7 @@ def start_logging(event):
     
     # Use fixed filename to avoid Tkinter conflicts
     timestamp = time.strftime("%Y%m%d_%H%M%S")
-    fname = f"differential_capacitance_{timestamp}_dipcoated_nozzle_node7.csv"
+    fname = f"../data/11242025_{timestamp}_mux_differential_allconductive_garter_node1_ch7_capacitance.csv"
     
     try:
         csv_file = open(fname, mode="w", newline="")
