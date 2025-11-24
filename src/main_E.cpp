@@ -10,14 +10,14 @@
 #define DISCARD_READ    1     // discard first read after switching
 
 // Row MUX (0–7)
-#define ROW_S0 3
-#define ROW_S1 4
-#define ROW_S2 5
+#define ROW_S0 2
+#define ROW_S1 3
+#define ROW_S2 4
 
 // Column MUX (0–7)
-#define COL_S0 7
-#define COL_S1 8
-#define COL_S2 9
+#define COL_S0 5
+#define COL_S1 6
+#define COL_S2 7
 
 FDC2214 fdc(FDC2214_I2C_ADDR_0);
 
@@ -50,7 +50,7 @@ void setup() {
   selectRow(0);
   selectCol(0);
   
-  bool ok = fdc.begin(0xF, 0x6, 0x5, false);
+  bool ok = fdc.begin(0x3, 0x4, 0x5, false);
   Serial.println(ok ? "FDC READY" : "FDC FAIL");
   Serial.println("Row_index,Column_index,Raw_Cap_Row,Raw_Cap_Column");
 }
@@ -66,23 +66,18 @@ void loop() {
       
       if (DISCARD_READ) { 
         fdc.getReading28(0);  
-        delay(10);           
-        fdc.getReading28(1);  
-        delay(10);            
       }
       
       uint32_t valRow = fdc.getReading28(0); 
-      delay(10);                               // delay between channel reads
-      uint32_t valCol = fdc.getReading28(1); 
+      // delay(10);                               // delay between channel reads
+      // uint32_t valCol = fdc.getReading28(1); 
       
       // Output: Row_index, Column_index, Raw Cap Row, Raw Cap Column
       Serial.print(r);
       Serial.print(",");
       Serial.print(c);
       Serial.print(",");
-      Serial.print(valRow);
-      Serial.print(",");
-      Serial.println(valCol);
+      Serial.println(valRow);
       
       delay(10);
     }
