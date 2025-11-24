@@ -52,7 +52,7 @@ void setup() {
   
   bool ok = fdc.begin(0x3, 0x4, 0x5, false);
   Serial.println(ok ? "FDC READY" : "FDC FAIL");
-  Serial.println("Row_index,Column_index,Raw_Cap_Row,Raw_Cap_Column");
+  Serial.println("Row_index, Column_index, Node_Value");
 }
 
 void loop() {
