@@ -69,9 +69,7 @@ void loop() {
       }
       
       uint32_t valRow = fdc.getReading28(0); 
-      // delay(10);                               // delay between channel reads
-      // uint32_t valCol = fdc.getReading28(1); 
-      
+
       // Output: Row_index, Column_index, Raw Cap Row, Raw Cap Column
       Serial.print(r);
       Serial.print(",");
