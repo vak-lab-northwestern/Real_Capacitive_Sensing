@@ -13,11 +13,11 @@ from tkinter import filedialog
 ref_clock = 40e6  # Hz
 scale_factor = ref_clock / (2 ** 28)
 inductance = 18e-6  # H
-SERIAL_PORT = "COM9"
+SERIAL_PORT = "COM13"
 BAUD_RATE = 115200
 
 # Number of channels: MUX1_0-7 + MUX2_0-7
-channel_num = 16
+channel_num = 8
 
 # Channel labels matching Arduino output
 channel_labels = [

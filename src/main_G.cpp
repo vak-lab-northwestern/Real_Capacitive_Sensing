@@ -4,27 +4,28 @@
 #include "FDC2214.h"
 
 /*
-  FDC2214 Continuous Time-Division Multiplexing (TDM)
-  Two 8:1 analog multiplexers connected to CH0 and CH1 of FDC2214.
+  FDC2214 Continuous Time-Division Multiplexing (TDM, Differential)
+  One 8:1 analog multiplexer connected to CH0 of FDC2214.
   Output format to Serial (one line per full scan):
-  MUX1_0,MUX1_1,MUX1_2,MUX1_3,MUX1_4,MUX1_5,MUX1_6,MUX1_7,MUX2_0,MUX2_1,MUX2_2,MUX2_3,MUX2_4,MUX2_5,MUX2_6,MUX2_7\n
+  MUX1_0,MUX1_1,MUX1_2,MUX1_3,MUX1_4,MUX1_5,MUX1_6,MUX1_7\n
   where:
     MUX1_0-7 = FDC CH0 readings for MUX1 states 0–7
-    MUX2_0-7 = FDC CH1 readings for MUX2 states 0–7
 */
 
 // MUX pin mapping (3 select lines for 8:1 mux)
-#define MUX1_S0 2   
+// SN74HC4051 follows this format: C B A == S2 S1 S0
+#define MUX1_S0 2 // LSB   
 #define MUX1_S1 3
-#define MUX1_S2 4    
-#define MUX2_S0 5
+#define MUX1_S2 4 // MSB
+#define MUX2_S0 5 // LSB
 #define MUX2_S1 6
-#define MUX2_S2 7
+#define MUX2_S2 7 // MSB
 
 // Constants
 #define TOTAL_MUX_STATES   8   // 8:1 multiplexers
-#define FDC_CHANNELS       2   // Using 2 FDC channels (CH0 and CH1)
-#define TOTAL_READINGS     16  // 8 readings from MUX1 + 8 from MUX2
+             // #define FDC_CHANNELS       2   // Using 2 FDC channels (CH0 and CH1)
+#define FDC_CHANNELS       1   // Using 1 FDC channel (CH0)
+#define TOTAL_READINGS     8  // 8 readings from MUX1
 #define SETTLE_US 5500
 
 // Calculated conversion time per channel: ~1.68ms
@@ -73,7 +74,7 @@ void setup() {
   initFDC(fdc1, "FDC");
   
   Serial.println("Starting multiplexed capacitance scan (RAW)...");
-  Serial.println("Format: MUX1_0,MUX1_1,MUX1_2,MUX1_3,MUX1_4,MUX1_5,MUX1_6,MUX1_7,MUX2_0,MUX2_1,MUX2_2,MUX2_3,MUX2_4,MUX2_5,MUX2_6,MUX2_7");
+  Serial.println("Format: MUX1_0,MUX1_1,MUX1_2,MUX1_3,MUX1_4,MUX1_5,MUX1_6,MUX1_7");
   
   // Let FDC stabilize with initial mux state
   delay(100);
@@ -82,6 +83,8 @@ void setup() {
 void loop() {
   uint32_t readings[TOTAL_READINGS];
   
+  //Update channel reading to match mux state
+
   // Scan through all 8 states for both multiplexers
   for (int muxState = 0; muxState < TOTAL_MUX_STATES; muxState++) {
     setMuxPins(MUX1_S0, MUX1_S1, MUX1_S2, muxState);
@@ -96,10 +99,10 @@ void loop() {
     
     // The library's getReading28() already waits for data-ready flag
     readings[muxState] = fdc1.getReading28(0);
-    readings[muxState + 8] = fdc1.getReading28(1);
+    // readings[muxState + 8] = fdc1.getReading28(1);
   }
   
-  // Output all 16 readings as CSV
+  // Output all 8 readings as CSV
   for (int i = 0; i < TOTAL_READINGS; i++) {
     Serial.print(readings[i]);
     if (i < TOTAL_READINGS - 1) Serial.print(",");

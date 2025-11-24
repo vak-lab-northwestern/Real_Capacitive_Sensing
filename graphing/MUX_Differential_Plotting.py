@@ -8,14 +8,13 @@ import time
 import threading
 import tkinter as tk
 from tkinter import filedialog
-from cmcrameri import cm
 
 
 # Settings
 serialPort = "COM13"
 baudrate = 115200
 channel_num = 8
-channel_title = "Live Capacitance from 8 Channels" 
+channel_title = "Live Capacitance from 8 MUX Channels" 
 
 #  Calibration constants 
 ref_clock = 40e6  # Hz
@@ -45,11 +44,11 @@ def raw_to_sensor_capacitance(raw):
     c_sense = c_total - C_FIXED
     return c_sense * 1e12  # pF
 
-for i in range(channel_num):
-    if channel_num == 1:
-        channel_title = f"Live Capacitance from {i+1} Channel"
-    else:
-        channel_title = f"Live Capacitance from {i+1} Channels"
+# Update channel title based on channel count
+if channel_num == 1:
+    channel_title = f"Live Capacitance from 1 MUX Channel"
+else:
+    channel_title = f"Live Capacitance from {channel_num} MUX Channels"
 
 
 # Serial setup
@@ -64,7 +63,8 @@ ch = [deque([0.0] * buffer_len, maxlen=buffer_len) for _ in range(channel_num)]
 # Plot setup
 plt.ion()
 fig, ax = plt.subplots()
-lines = [ax.plot(list(ch[i]), label=f"CH{i+1}")[0] for i in range(channel_num)]
+# Changed labels to match Arduino MUX naming
+lines = [ax.plot(list(ch[i]), label=f"MUX1_{i}")[0] for i in range(channel_num)]
 ax.legend()
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Δ Capacitance (pF)")
@@ -102,7 +102,8 @@ def start_logging(event):
     try:
         csv_file = open(fname, mode="w", newline="")
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(["timestamp"] + [f"CH{i}_pF" for i in range(channel_num)])
+        # Changed CSV header to match Arduino MUX naming
+        csv_writer.writerow(["timestamp"] + [f"MUX1_{i}_pF" for i in range(channel_num)])
         csv_file.flush()
         logging_enabled = True
         btn_start.label.set_text("Logging: ON")
@@ -154,6 +155,7 @@ def serial_worker():
             if not raw_line:
                 continue
             parts = raw_line.split(",")
+            # Uncomment if you want to validate the number of channels
             # if len(parts) != channel_num:
             #     print(f"[DEBUG] Skipping line: expecting {channel_num} parts, got {len(parts)}")
             #     continue
