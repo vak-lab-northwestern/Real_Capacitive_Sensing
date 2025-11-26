@@ -12,6 +12,9 @@ int sampleCount = 0;
 unsigned long baselineMedian = 0;
 bool baselineSet = false;
 
+double baselineCap_pf = 0.0;
+
+
 // -------- median helper ---------
 unsigned long computeMedian(unsigned long *arr, int n) {
   // simple insertion sort (n <= 200)
@@ -27,6 +30,9 @@ unsigned long computeMedian(unsigned long *arr, int n) {
   }
   return arr[n / 2];
 }
+
+
+
 
 // -------- setup --------
 void setup() {
@@ -47,7 +53,27 @@ void setup() {
   Serial.println("Collecting baseline for 10 seconds...");
 }
 
-// -------- loop --------
+// ------------ convert raw reading → capacitance in pF -------------
+double computeCap_pf(unsigned long reading) {
+  const double fref = 40000000.0;  // 40 MHz internal reference
+  const double L = 18e-6;          // 18 uH inductor
+  const double Cboard = 33e-12;    // 33 pF fixed board capacitor
+  const double Cpar = 3e-12;       // parasitics (adjust if needed)
+
+  // Convert raw code → frequency
+  double fs = (fref * (double)reading) / 268435456.0; // 2^28
+
+  // LC resonance equation → total capacitance
+  double Ctotal = 1.0 / ( (2.0 * M_PI * fs) * (2.0 * M_PI * fs) * L );
+
+  // Remove board + parasitic capacitance
+  double Csensor = Ctotal - (Cboard + Cpar);
+
+  return Csensor * 1e12; // convert to picofarads
+}
+
+
+// ================== LOOP ==================
 void loop() {
   // --- baseline acquisition ---
   if (!baselineSet) {
@@ -58,30 +84,41 @@ void loop() {
       return;
     }
 
-    // compute median
+    // compute median raw reading
     baselineMedian = computeMedian(baselineSamples, sampleCount);
+
+    // convert baseline reading → baseline capacitance
+    baselineCap_pf = computeCap_pf(baselineMedian);
+
     baselineSet = true;
 
-    Serial.print("Baseline Median = ");
+    Serial.print("Baseline Median Raw = ");
     Serial.println(baselineMedian);
-    Serial.println("Starting ΔC/C reporting...");
+    Serial.print("Baseline Capacitance = ");
+    Serial.print(baselineCap_pf, 3);
+    Serial.println(" pF");
+    Serial.println("Starting ΔC reporting in pF...");
     return;
   }
 
   // --- normal mode ---
   unsigned long reading = capsense.getReading28(0);
 
-  long delta = (long)reading - (long)baselineMedian;
+  // current capacitance in pF
+  double C_now_pf = computeCap_pf(reading);
 
-  // deltaC/C = -(deltaFreq / freq)
-  float deltaC_over_C = -( (float)delta / (float)baselineMedian );
+  // delta capacitance in pF
+  double deltaC_pf = C_now_pf - baselineCap_pf;
 
-  Serial.print("Raw: ");
-  Serial.print(reading);
-  Serial.print("  Δ: ");
-  Serial.print(delta);
-  Serial.print("  ΔC/C: ");
+  // percent change if you still want it
+  double deltaC_over_C = deltaC_pf / baselineCap_pf;
+
+  Serial.print("C = ");
+  Serial.print(C_now_pf, 3);
+  Serial.print(" pF   ΔC = ");
+  Serial.print(deltaC_pf, 3);
+  Serial.print(" pF   ΔC/C = ");
   Serial.println(deltaC_over_C, 6);
 
-  delay(1000);  // 1 Hz reporting
+  delay(1000);  // 1 Hz
 }
