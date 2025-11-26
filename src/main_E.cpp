@@ -52,7 +52,7 @@ void setup() {
   
   bool ok = fdc.begin(0x3, 0x4, 0x5, false);
   Serial.println(ok ? "FDC READY" : "FDC FAIL");
-  Serial.println("Row_index, Column_index, Node_Value");
+  Serial.println("Timestamp,Row_index,Column_index,Node_Value");
 }
 
 void loop() {
@@ -70,7 +70,10 @@ void loop() {
       
       uint32_t valRow = fdc.getReading28(0); 
 
-      // Output: Row_index, Column_index, Raw Cap Row, Raw Cap Column
+      // Output: Timestamp, Row_index, Column_index, Node_Value
+      unsigned long timestamp = millis();
+      Serial.print(timestamp);
+      Serial.print(",");
       Serial.print(r);
       Serial.print(",");
       Serial.print(c);
