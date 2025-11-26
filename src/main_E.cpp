@@ -5,9 +5,10 @@
 // Array size + timing
 #define NUM_ROWS      8       // adjustable
 #define NUM_COLS      8       // adjustable
-#define ROW_SETTLE_US   5000  // longer settle for row switching
-#define COL_SETTLE_US   150   // shorter settle for column switching
-#define DISCARD_READ    1     // discard first read after switching
+#define ROW_SETTLE_US   8000  // longer settle for row switching (8ms)
+#define COL_SETTLE_US   8000  // settle for column switching (8ms to allow oscillator to stabilize)
+#define DISCARD_READS   2     // discard multiple reads after switching to allow FDC to stabilize
+#define FDC_CONVERSION_WAIT_MS 10  // wait for FDC conversion cycle after MUX switch
 
 // Row MUX (0–7)
 #define ROW_S0 2
@@ -50,8 +51,17 @@ void setup() {
   selectRow(0);
   selectCol(0);
   
-  bool ok = fdc.begin(0x3, 0x4, 0x5, false);
+  // Configure FDC2214:
+  // 0x01 = CH0 only (disable autoscan, single channel mode)
+  // 0x00 = autoscan disabled (not needed for single channel)
+  // 0x05 = deglitch at 10MHz (reduces noise)
+  // false = external oscillator
+  bool ok = fdc.begin(0x01, 0x00, 0x05, false);
   Serial.println(ok ? "FDC READY" : "FDC FAIL");
+  
+  // Let FDC stabilize with initial MUX state before starting measurements
+  delay(200);
+  
   Serial.println("Timestamp,Row_index,Column_index,Node_Value");
 }
 
@@ -64,11 +74,18 @@ void loop() {
       selectCol(c);
       delayMicroseconds(COL_SETTLE_US);
       
-      if (DISCARD_READ) { 
-        fdc.getReading28(0);  
+      // Wait for FDC oscillator to stabilize after MUX switch
+      delay(FDC_CONVERSION_WAIT_MS);
+      
+      // Discard multiple reads to allow FDC to fully stabilize
+      // This is critical - FDC needs time to adjust to new capacitance after MUX switch
+      for (int i = 0; i < DISCARD_READS; i++) {
+        fdc.getReading28(0);
+        delay(5);  // Small delay between discard reads
       }
       
-      uint32_t valRow = fdc.getReading28(0); 
+      // Final stable reading
+      uint32_t valRow = fdc.getReading28(0);
 
       // Output: Timestamp, Row_index, Column_index, Node_Value
       unsigned long timestamp = millis();
@@ -80,9 +97,11 @@ void loop() {
       Serial.print(",");
       Serial.println(valRow);
       
-      delay(10);
+      // Small delay before next node
+      delay(5);
     }
   }
   
-  delay(20);
+  // Delay between full grid scans
+  delay(10);
 }
