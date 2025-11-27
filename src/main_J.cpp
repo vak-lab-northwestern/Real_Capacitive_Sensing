@@ -33,7 +33,6 @@ unsigned long computeMedian(unsigned long *arr, int n) {
 
 
 
-
 // -------- setup --------
 void setup() {
   Wire.begin();
@@ -44,9 +43,9 @@ void setup() {
 
   bool ok = capsense.begin(
     0x01,   // CH0 only
-    0x00,   // no autoscan
-    0x01,   // 1 MHz deglitch
-    true    // internal oscillator
+    0x00,   // no autoscan # needs to be switched on for multi-touch
+    0x01,   // 1 MHz deglitch # chanegd from 10MHz to 1MHz to reduce noise
+    true    // internal oscillator # changed from false to true to use internal oscillator on FDC2214
   );
   Serial.println(ok ? "Sensor OK" : "Sensor FAIL");
 

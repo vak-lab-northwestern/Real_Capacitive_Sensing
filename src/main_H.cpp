@@ -1,143 +1,170 @@
-#include <Arduino.h>
 #include <Wire.h>
 #include "FDC2214.h"
 
 /*
-  FDC2214 Continuous Time-Division Multiplexing (TDM, Differential)
+  FDC2214 8x8 Grid Scanning - Raw Capacitance Output
   Two 8:1 analog multiplexers (MUX1 for rows, MUX2 for columns) connected to FDC2214 CH0.
   Output format to Serial (one line per node):
-  Timestamp,Row_index,Column_index,Node_Value
+  Timestamp,Row_index,Column_index,Raw_Capacitance_pF
   where:
     Row_index = MUX1 state (0-7)
     Column_index = MUX2 state (0-7)
-    Node_Value = FDC CH0 raw 28-bit frequency reading (NOT capacitance in pF)
-    
-  Note: Node_Value is a frequency count from the FDC2214. Lower values = higher capacitance.
-        To convert to capacitance: freq = Node_Value * (40MHz / 2^28)
-                                   C = 1 / ((2π * freq)^2 * L)
-        Typical values: 10-500pF sensors produce readings in range 100,000 - 15,000,000
+    Raw_Capacitance_pF = capacitance value in picofarads (computed from FDC2214 raw reading)
+  
+  Note: Baseline calculation and ΔC/C computation are done in post-processing (real_serial_read_diff.py)
 */
 
 // MUX pin mapping (3 select lines for 8:1 mux)
 // SN74HC4051 follows this format: C B A == S2 S1 S0
-#define MUX1_S0 2 // LSB   
+#define MUX1_S0 2 // LSB   (Row MUX)
 #define MUX1_S1 3
 #define MUX1_S2 4 // MSB
-#define MUX2_S0 5 // LSB
+#define MUX2_S0 5 // LSB   (Column MUX)
 #define MUX2_S1 6
 #define MUX2_S2 7 // MSB
 
 // Constants
 #define TOTAL_MUX_STATES 8   // 8:1 multiplexers (8 rows, 8 columns)
-#define ROW_SETTLE_US 8000   // Longer settle for row switching (8ms) - matching main_E.cpp
-#define COL_SETTLE_US 8000   // Settle for column switching (8ms to allow oscillator to stabilize)
-#define DISCARD_READS 2      // Discard multiple reads after switching to allow FDC to stabilize
-#define FDC_CONVERSION_WAIT_MS 10  // Wait for FDC conversion cycle after MUX switch
-#define DEBUG_MODE 0         // Set to 1 to enable debug output
+#define ROW_SETTLE_US 3000   // Reduced from 8000: Settle time for row switching (optimized for 4 nodes)
+#define COL_SETTLE_US 3000   // Reduced from 8000: Settle time for column switching (optimized for 4 nodes)
+#define DISCARD_READS 1      // Reduced from 2: Discard reads after MUX switch for stabilization
+#define FDC_CONVERSION_WAIT_MS 3  // Reduced from 10: Wait for FDC conversion after MUX switch
 
-FDC2214 fdc1(FDC2214_I2C_ADDR_0);
+// Active nodes to scan (2x2 grid = 4 nodes)
+#define NUM_ACTIVE_NODES 4
+const int ACTIVE_NODES[NUM_ACTIVE_NODES][2] = {
+  {0, 0},  // Row 0, Col 0
+  {0, 1},  // Row 0, Col 1
+  {1, 0},  // Row 1, Col 0
+  {1, 1}   // Row 1, Col 1
+};
 
+FDC2214 capsense(FDC2214_I2C_ADDR_0);
+
+
+// -------- MUX Control Functions --------
 void setMuxPins(int s0, int s1, int s2, int state) {
   digitalWrite(s0, state & 0x01);
   digitalWrite(s1, (state >> 1) & 0x01);
   digitalWrite(s2, (state >> 2) & 0x01);
 }
 
-void initFDC(FDC2214 &fdc, const char *name) {
-  // Configure FDC2214:
-  // 0x01 = CH0 only (disable autoscan, single channel mode)
-  // 0x00 = autoscan disabled (not needed for single channel)
-  // 0x05 = deglitch at 10MHz (reduces noise)
-  // false = external oscillator
-  bool ok = fdc.begin(0x3, 0x4, 0x5, false);   
-  if (ok) Serial.print(name), Serial.println(" READY");
-  else Serial.print(name), Serial.println(" FAIL");
-}
-
 void setupMuxPins() {
-    pinMode(MUX1_S0, OUTPUT);
-    pinMode(MUX1_S1, OUTPUT);
-    pinMode(MUX1_S2, OUTPUT);
-    pinMode(MUX2_S0, OUTPUT);
-    pinMode(MUX2_S1, OUTPUT);
-    pinMode(MUX2_S2, OUTPUT);
+  pinMode(MUX1_S0, OUTPUT);
+  pinMode(MUX1_S1, OUTPUT);
+  pinMode(MUX1_S2, OUTPUT);
+  pinMode(MUX2_S0, OUTPUT);
+  pinMode(MUX2_S1, OUTPUT);
+  pinMode(MUX2_S2, OUTPUT);
 }
 
+
+// -------- Capacitance Conversion --------
+double computeCap_pf(unsigned long reading) {
+  const double fref = 40000000.0;  // 40 MHz internal reference
+  const double L = 18e-6;          // 18 uH inductor
+  const double Cboard = 33e-12;    // 33 pF fixed board capacitor
+  const double Cpar = 3e-12;       // parasitics (adjust if needed)
+
+  // Convert raw code → frequency
+  double fs = (fref * (double)reading) / 268435456.0; // 2^28
+
+  // LC resonance equation → total capacitance
+  double Ctotal = 1.0 / ((2.0 * M_PI * fs) * (2.0 * M_PI * fs) * L);
+
+  // Remove board + parasitic capacitance
+  double Csensor = Ctotal - (Cboard + Cpar);
+
+  return Csensor * 1e12; // convert to picofarads
+}
+
+
+// -------- Setup --------
 void setup() {
   Wire.begin();
-  Wire.setClock(400000);
   Serial.begin(115200);
+  delay(300);
 
+  Serial.println("\nFDC2214 8x8 Grid - Raw Capacitance Output");
+
+  // Setup MUX pins
   setupMuxPins();
   
   // Initialize both muxes to state 0
   setMuxPins(MUX1_S0, MUX1_S1, MUX1_S2, 0);
   setMuxPins(MUX2_S0, MUX2_S1, MUX2_S2, 0);
-  
-  initFDC(fdc1, "FDC");
-  
+
+  // Initialize FDC2214 with hardware settings from main_I.cpp
+  // 0x01 = CH0 only, 0x00 = no autoscan, 0x01 = 1 MHz deglitch, true = internal oscillator
+  bool ok = capsense.begin(
+    0x01,   // CH0 only
+    0x00,   // no autoscan
+    0x01,   // 1 MHz deglitch (changed from 10MHz to 1MHz to reduce noise)
+    true    // internal oscillator (changed from false to true)
+  );
+  Serial.println(ok ? "Sensor OK" : "Sensor FAIL");
+
   // Let FDC stabilize with initial mux state
   delay(200);
   
-  Serial.println("Timestamp,Row_index,Column_index,Node_Value");
+  Serial.println("Timestamp,Row_index,Column_index,Raw_Capacitance_pF");
 }
 
-void loop() {
-  // Scan through all row states
-  for (int row = 0; row < TOTAL_MUX_STATES; row++) {
-    // Set MUX1 to current row
-    setMuxPins(MUX1_S0, MUX1_S1, MUX1_S2, row);
-    delayMicroseconds(ROW_SETTLE_US);
-    
-    if (DEBUG_MODE) {
-      Serial.print("#DEBUG: Row="); Serial.println(row);
-    }
-    
-    // Scan through all column states
-    for (int col = 0; col < TOTAL_MUX_STATES; col++) {
-      // Set MUX2 to current column
-      setMuxPins(MUX2_S0, MUX2_S1, MUX2_S2, col);
-      delayMicroseconds(COL_SETTLE_US);
-      
-      // Wait for FDC oscillator to stabilize after MUX switch
-      delay(FDC_CONVERSION_WAIT_MS);
-      
-      // Discard multiple reads to allow FDC to fully stabilize
-      // This is critical - FDC needs time to adjust to new capacitance after MUX switch
-      for (int i = 0; i < DISCARD_READS; i++) {
-        uint32_t discardVal = fdc1.getReading28(0);
-        if (DEBUG_MODE && i == 0) {
-          Serial.print("#DEBUG: R"); Serial.print(row);
-          Serial.print(",C"); Serial.print(col);
-          Serial.print(" discard[0]="); Serial.println(discardVal);
-        }
-        delay(5);  // Small delay between discard reads
-      }
-      
-      // Final stable reading
-      uint32_t nodeValue = fdc1.getReading28(0);
-      
-      if (DEBUG_MODE) {
-        Serial.print("#DEBUG: R"); Serial.print(row);
-        Serial.print(",C"); Serial.print(col);
-        Serial.print(" final="); Serial.println(nodeValue);
-      }
-      
-      // Output: Timestamp, Row_index, Column_index, Node_Value
-      unsigned long timestamp = millis();
-      Serial.print(timestamp);
-      Serial.print(",");
-      Serial.print(row);
-      Serial.print(",");
-      Serial.print(col);
-      Serial.print(",");
-      Serial.println(nodeValue);
-      
-      // Small delay before next node
-      delay(50);
-    }
+
+// -------- Scan Node Function --------
+unsigned long scanNode(int row, int col) {
+  // Set MUX1 to current row
+  setMuxPins(MUX1_S0, MUX1_S1, MUX1_S2, row);
+  delayMicroseconds(ROW_SETTLE_US);
+  
+  // Set MUX2 to current column
+  setMuxPins(MUX2_S0, MUX2_S1, MUX2_S2, col);
+  delayMicroseconds(COL_SETTLE_US);
+  
+  // Wait for FDC oscillator to stabilize after MUX switch
+  delay(FDC_CONVERSION_WAIT_MS);
+  
+  // Discard reads to allow FDC to fully stabilize
+  for (int i = 0; i < DISCARD_READS; i++) {
+    capsense.getReading28(0);
+    delay(2);  // Reduced from 5: Small delay between discard reads
   }
   
-  // Delay between full grid scans
-  delay(100);
+  // Final stable reading
+  unsigned long nodeValue = capsense.getReading28(0);
+  
+  return nodeValue;
+}
+
+
+// -------- Main Loop --------
+void loop() {
+  unsigned long timestamp = millis();
+  
+  // Scan only the 4 active nodes (much faster than 64 nodes)
+  for (int i = 0; i < NUM_ACTIVE_NODES; i++) {
+    int row = ACTIVE_NODES[i][0];
+    int col = ACTIVE_NODES[i][1];
+    
+    // Get raw reading from FDC2214
+    unsigned long reading = scanNode(row, col);
+    
+    // Convert to capacitance in pF
+    double cap_pf = computeCap_pf(reading);
+    
+    // Output: Timestamp,Row_index,Column_index,Raw_Capacitance_pF
+    Serial.print(timestamp);
+    Serial.print(",");
+    Serial.print(row);
+    Serial.print(",");
+    Serial.print(col);
+    Serial.print(",");
+    Serial.println(cap_pf, 3);  // 3 decimal places for capacitance
+    
+    // Reduced delay before next node (was 10ms, now 2ms)
+    delay(2);
+  }
+  
+  // Reduced delay between scans (was 50ms, now 5ms for faster updates)
+  delay(5);
 }

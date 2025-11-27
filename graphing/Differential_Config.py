@@ -12,7 +12,7 @@ from cmcrameri import cm
 
 
 # Settings
-serialPort = "/dev/cu.usbserial-210"
+serialPort = "/dev/cu.usbserial-10"
 baudrate = 115200
 channel_num = 8
 channel_title = "Live Capacitance from 8 Channels" 
