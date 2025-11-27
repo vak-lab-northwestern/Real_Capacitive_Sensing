@@ -1,58 +1,60 @@
 #include <Wire.h>
 #include "FDC2214.h"
 
+/*
+  FDC2214 4-Channel Direct Reading - Raw Capacitance Output Only
+  Reads 4 nodes directly from FDC2214 channels (CH0, CH1, CH2, CH3) without MUX.
+  Removed median and delta C calculations to reduce RAM usage.
+  Baseline and delta C/C computations are done in Python (real_serial_read_diff.py).
+  Output format to Serial (one line per node):
+  Timestamp,Row_index,Column_index,Raw_Capacitance_pF
+  
+  Channel mapping:
+  CH0 -> Node (0,0)
+  CH1 -> Node (0,1)
+  CH2 -> Node (1,0)
+  CH3 -> Node (1,1)
+*/
+
 FDC2214 capsense(FDC2214_I2C_ADDR_0);
 
-#define SAMPLE_INTERVAL_MS 50      // 20 Hz sampling during baseline
-#define BASELINE_TIME_MS   10000    // 10 seconds
-#define MAX_SAMPLES        (BASELINE_TIME_MS / SAMPLE_INTERVAL_MS)
+// 4 nodes mapped to FDC channels
+#define NUM_NODES 4
+const int NODE_CHANNEL_MAP[NUM_NODES] = {0, 1, 2, 3};  // CH0, CH1, CH2, CH3
+const int NODE_ROW_MAP[NUM_NODES] = {0, 0, 1, 1};      // Row indices
+const int NODE_COL_MAP[NUM_NODES] = {0, 1, 0, 1};      // Column indices
 
-unsigned long baselineSamples[MAX_SAMPLES];
-int sampleCount = 0;
-unsigned long baselineMedian = 0;
-bool baselineSet = false;
+// Timing constants
+#define CHANNEL_SWITCH_DELAY_MS 2  // Small delay when switching channels
 
-double baselineCap_pf = 0.0;
-
-
-// -------- median helper ---------
-unsigned long computeMedian(unsigned long *arr, int n) {
-  // simple insertion sort (n <= 200)
-  for (int i = 1; i < n; i++) {
-    unsigned long key = arr[i];
-    int j = i - 1;
-
-    while (j >= 0 && arr[j] > key) {
-      arr[j + 1] = arr[j];
-      j--;
-    }
-    arr[j + 1] = key;
-  }
-  return arr[n / 2];
-}
-
-
-
-// -------- setup --------
+// -------- Setup --------
 void setup() {
   Wire.begin();
   Serial.begin(115200);
   delay(300);
 
-  Serial.println("\nFDC2214 Median Baseline ΔC/C Mode");
+  Serial.println("\nFDC2214 4-Channel Direct Reading - Raw Capacitance Output");
 
+  // Initialize FDC2214 with all 4 channels enabled and autoscan
+  // 0x0F = binary 1111 = all channels (CH0, CH1, CH2, CH3) enabled
+  // 0x0F = autoscan sequence through all enabled channels
+  // 0x01 = 1 MHz deglitch (reduced from 10MHz to reduce noise)
+  // true = internal oscillator
   bool ok = capsense.begin(
-    0x01,   // CH0 only
-    0x00,   // no autoscan # needs to be switched on for multi-touch
-    0x01,   // 1 MHz deglitch # chanegd from 10MHz to 1MHz to reduce noise
-    true    // internal oscillator # changed from false to true to use internal oscillator on FDC2214
+    0x0F,   // All 4 channels enabled (CH0, CH1, CH2, CH3)
+    0x0F,   // Autoscan through all enabled channels
+    0x01,   // 1 MHz deglitch (reduced from 10MHz to reduce noise)
+    true    // internal oscillator
   );
   Serial.println(ok ? "Sensor OK" : "Sensor FAIL");
 
-  Serial.println("Collecting baseline for 10 seconds...");
+  // Let FDC stabilize
+  delay(200);
+  
+  Serial.println("Timestamp,Row_index,Column_index,Raw_Capacitance_pF");
 }
 
-// ------------ convert raw reading → capacitance in pF -------------
+// -------- Capacitance Conversion --------
 double computeCap_pf(unsigned long reading) {
   const double fref = 40000000.0;  // 40 MHz internal reference
   const double L = 18e-6;          // 18 uH inductor
@@ -63,7 +65,7 @@ double computeCap_pf(unsigned long reading) {
   double fs = (fref * (double)reading) / 268435456.0; // 2^28
 
   // LC resonance equation → total capacitance
-  double Ctotal = 1.0 / ( (2.0 * M_PI * fs) * (2.0 * M_PI * fs) * L );
+  double Ctotal = 1.0 / ((2.0 * M_PI * fs) * (2.0 * M_PI * fs) * L);
 
   // Remove board + parasitic capacitance
   double Csensor = Ctotal - (Cboard + Cpar);
@@ -71,53 +73,36 @@ double computeCap_pf(unsigned long reading) {
   return Csensor * 1e12; // convert to picofarads
 }
 
-
-// ================== LOOP ==================
+// -------- Main Loop --------
 void loop() {
-  // --- baseline acquisition ---
-  if (!baselineSet) {
-    if (sampleCount < MAX_SAMPLES) {
-      unsigned long r = capsense.getReading28(0);
-      baselineSamples[sampleCount++] = r;
-      delay(SAMPLE_INTERVAL_MS);
-      return;
-    }
-
-    // compute median raw reading
-    baselineMedian = computeMedian(baselineSamples, sampleCount);
-
-    // convert baseline reading → baseline capacitance
-    baselineCap_pf = computeCap_pf(baselineMedian);
-
-    baselineSet = true;
-
-    Serial.print("Baseline Median Raw = ");
-    Serial.println(baselineMedian);
-    Serial.print("Baseline Capacitance = ");
-    Serial.print(baselineCap_pf, 3);
-    Serial.println(" pF");
-    Serial.println("Starting ΔC reporting in pF...");
-    return;
+  unsigned long timestamp = millis();
+  
+  // Read all 4 channels directly (no MUX needed)
+  for (int i = 0; i < NUM_NODES; i++) {
+    int channel = NODE_CHANNEL_MAP[i];
+    int row = NODE_ROW_MAP[i];
+    int col = NODE_COL_MAP[i];
+    
+    // Read directly from FDC channel (autoscan handles channel switching)
+    unsigned long reading = capsense.getReading28(channel);
+    
+    // Convert to capacitance in pF
+    double cap_pf = computeCap_pf(reading);
+    
+    // Output: Timestamp,Row_index,Column_index,Raw_Capacitance_pF
+    // No baseline or delta C calculations - done in Python to save RAM
+    Serial.print(timestamp);
+    Serial.print(",");
+    Serial.print(row);
+    Serial.print(",");
+    Serial.print(col);
+    Serial.print(",");
+    Serial.println(cap_pf, 3);  // 3 decimal places for capacitance
+    
+    // Small delay between channel reads
+    delay(CHANNEL_SWITCH_DELAY_MS);
   }
-
-  // --- normal mode ---
-  unsigned long reading = capsense.getReading28(0);
-
-  // current capacitance in pF
-  double C_now_pf = computeCap_pf(reading);
-
-  // delta capacitance in pF
-  double deltaC_pf = C_now_pf - baselineCap_pf;
-
-  // percent change if you still want it
-  double deltaC_over_C = deltaC_pf / baselineCap_pf;
-
-  Serial.print("C = ");
-  Serial.print(C_now_pf, 3);
-  Serial.print(" pF   ΔC = ");
-  Serial.print(deltaC_pf, 3);
-  Serial.print(" pF   ΔC/C = ");
-  Serial.println(deltaC_over_C, 6);
-
-  delay(1000);  // 1 Hz
+  
+  // Small delay between full scans
+  delay(2);
 }
