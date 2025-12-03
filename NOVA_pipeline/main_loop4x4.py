@@ -11,25 +11,43 @@ from grid_manager import GridManager
 from calibration_store import load_max_deltas
 
 # -------- CONFIG --------
-PORT = "/dev/tty.usbmodem212401"
+PORT = "/dev/tty.usbserial-10"
 BAUD = 115200
-ROWS = 4
-COLS = 4
+ROWS = 2
+COLS = 2
 CALIB_FILE = "max_deltas/cell_peaks.json"
 
 HISTORY_LEN = 300
 PLOT_EVERY_N_SAMPLES = 4
 # ------------------------
 
-line_re = re.compile(r"Row\s+(\d+),\s*Col\s+(\d+)\s*:\s*(\d+)")
+# line_re = re.compile(r"Row\s+(\d+),\s*Col\s+(\d+)\s*:\s*(\d+)")
+line_re = re.compile(r"\s*(\d+)\s*,\s*Row\s+(\d+)\s*,\s*Col\s+(\d+)\s*:\s*(\d+)")
+
+
+# def parse_line(line: str):
+#     m = line_re.match(line)
+#     if not m:
+#         return None
+#     row = int(m.group(1))
+#     col = int(m.group(2))
+#     val = int(m.group(3))
+#     return row, col, val
 
 def parse_line(line: str):
     m = line_re.match(line)
     if not m:
         return None
-    row = int(m.group(1))
-    col = int(m.group(2))
-    val = int(m.group(3))
+
+    # 1 = timestamp
+    # 2 = Row
+    # 3 = Col
+    # 4 = Value
+    timestamp = int(m.group(1))  # store in case you want it later
+    row = int(m.group(2))
+    col = int(m.group(3))
+    val = int(m.group(4))
+
     return row, col, val
 
 def main():

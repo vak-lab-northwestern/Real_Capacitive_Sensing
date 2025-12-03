@@ -6,7 +6,7 @@ from scipy.signal import butter, lfilter
 import matplotlib.pyplot as plt
 
 # ---- CONFIG ----
-PORT = "/dev/tty.usbmodem21301"   # Change if needed
+PORT = "/dev/tty.usbserial-10"   # Change if needed
 BAUD = 115200
 FS = 100  # Assumed sampling frequency (Hz); adjust to approx loop rate
 CUTOFF = 5  # Cutoff frequency in Hz (the "low-pass target")

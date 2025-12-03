@@ -8,12 +8,12 @@ from grid_manager import GridManager
 from calibration_store import load_max_deltas, save_max_deltas
 
 # -------- CONFIG --------
-PORT = "/dev/tty.usbmodem212401"
+PORT = "/dev/tty.usbserial-10"
 BAUD = 115200
-ROWS = 1
-COLS = 4
+ROWS = 2
+COLS = 2
 CALIB_FILE = "max_deltas/cell_peaks.json"
-CALIB_WINDOW_SEC = 3.0
+CALIB_WINDOW_SEC = 10
 # ------------------------
 
 line_re = re.compile(r"Row\s+(\d+),\s*Col\s+:\s*(\d+)")
@@ -24,6 +24,33 @@ def parse_line(line: str):
     if not m:
         return None
     return int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+# line_re = re.compile(r"([\d:.]+),\s*(\d+),\s*(\d+),\s*(\d+)")
+
+# def parse_line(line: str):
+#     m = line_re.match(line)
+#     if not m:
+#         return None
+#     row = int(m.group(1))
+#     col = int(m.group(2))
+#     val = int(m.group(3))
+#     return row, col, val
+
+# def parse_line(line: str):
+#     m = line_re.match(line)
+#     if not m:
+#         return None
+
+#     # NEW CAPTURE GROUPS:
+#     # 1 = timestamp
+#     # 2 = row
+#     # 3 = col
+#     # 4 = val
+#     row = int(m.group(2))
+#     col = int(m.group(3))
+#     val = int(m.group(4))
+    
+#     return row, col, val
 
 
 def main():

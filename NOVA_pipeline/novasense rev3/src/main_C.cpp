@@ -2,9 +2,9 @@
 #include "FDC2214.h"
 
 // ===== Two MUX pin labels (distinct ICs) =====
-const uint8_t COL_MUX_A = 7;
+const uint8_t COL_MUX_A = 5;
 const uint8_t COL_MUX_B = 6;
-const uint8_t COL_MUX_C = 5;
+const uint8_t COL_MUX_C = 7;
 
 const uint8_t ROW_MUX_A = 2;
 const uint8_t ROW_MUX_B = 3;
@@ -34,10 +34,11 @@ void setRow(uint8_t row) {
 
 // read a single grid cell by fixing row + selecting col (CH0 only)
 unsigned long readGridCell(uint8_t row, uint8_t col) {
-    setRow(row);     // fixes which row line is connected
+    setRow(row); // fixes which row line is connected
     setColumn(col);  // connects column lines into CH0 path
     // delayMicroseconds(5000); // 5ms settle more robust for cap
-    delay(50);
+    delay(50);  // need minimum 20ms delay for cap to settle well
+                // smaller delay leads to worse signal stability
     return fdc.getReading28(0);
 }
 
@@ -55,8 +56,8 @@ void setup() {
     pinMode(ROW_MUX_C, OUTPUT);
 
     // Initialize FDC2214 with CH0 only enabled (mask 0x01)
-    // manual mode, 1 MHz de-glitch, internal oscillator
-    if (!fdc.begin(0x01, 0, 0, true)) {
+    // 0x01 - manual mode, 0 - disable autoscan, 0 - no deglitch filtering, true - internal oscillator
+    if (!fdc.begin(0x01, 0, 0, true)) {  
         Serial.println("FDC2214 not detected. Check I2C.");
         while (1);
     }
@@ -66,15 +67,16 @@ void setup() {
 
 void loop() {
     // Serial.println("\n--- 4x4 GRID SCAN (single CH0) ---");
-
+    unsigned long timestamp = millis();
     // Scan up to 8 generalized channels, stop at 4 for grid
-    for (uint8_t row = 0; row < 4; row++) {
-        for (uint8_t col = 0; col < 4; col++) {
+    for (uint8_t row = 0; row < 2; row++) {
+        for (uint8_t col = 0; col < 2; col++) {
             unsigned long val = readGridCell(row, col);
+            Serial.print(timestamp); Serial.print(" , ");
             Serial.print("Row "); Serial.print(row);
             Serial.print(", Col "); Serial.print(col);
             Serial.print(" : "); 
-            Serial.println(val);
+            Serial.println(val);  // not converted to pF, 28 bits wide, no decimal
         }
         // if (col >= 4) break; // grid has 4 columns, ignore rest
     }
