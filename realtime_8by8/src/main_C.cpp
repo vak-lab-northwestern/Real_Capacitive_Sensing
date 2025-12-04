@@ -70,8 +70,8 @@ void loop() {
     // Serial.println("\n--- 4x4 GRID SCAN (single CH0) ---");
     unsigned long timestamp = millis();
     // Scan up to 8 generalized channels, stop at 4 for grid
-    for (uint8_t row = 0; row < 2; row++) {
-        for (uint8_t col = 0; col < 2; col++) {
+    for (uint8_t row = 0; row < 8; row++) {
+        for (uint8_t col = 0; col < 8; col++) {
             unsigned long val = readGridCell(row, col);
             Serial.print(timestamp); Serial.print(" , ");
             Serial.print("Row "); Serial.print(row);

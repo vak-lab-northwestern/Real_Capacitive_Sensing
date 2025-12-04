@@ -13,8 +13,8 @@ from calibration_store import load_max_deltas
 # -------- CONFIG --------
 PORT = "/dev/tty.usbserial-10"
 BAUD = 115200
-ROWS = 2   # ✅ now 4 rows
-COLS = 2   # ✅ 4 cols per row
+ROWS = 2   # ✅ 2 rows
+COLS = 2   # ✅ 2 cols
 CALIB_FILE = "max_deltas/cell_peaks.json"
 
 HISTORY_LEN = 200
@@ -22,55 +22,23 @@ PLOT_EVERY_N_SAMPLES = 4
 LERP_ALPHA = 1
 # ------------------------
 
-# Example line: "Row 0, Col 2 : 123456"
-# ✅ We now allow ANY row/col 0–3 without regex rewrite
+# ❗ Old regex not needed, but we keep it for reference
 # line_re = re.compile(r"Row\s+(\d+),\s*Col\s+(\d+)\s*:\s*(\d+)")
-# line_re = re.compile(r"([\d:.]+),\s*(\d+),\s*(\d+),\s*(\d+)")
-line_re = re.compile(r"\s*(\d+)\s*,\s*Row\s+(\d+)\s*,\s*Col\s+(\d+)\s*:\s*(\d+)")
-
-
-# def parse_line(line: str):
-#     m = line_re.match(line)
-#     if not m:
-#         return None
-#     row = int(m.group(1))
-#     col = int(m.group(2))
-#     val = int(m.group(3))
-#     return row, col, val
 
 def parse_line(line: str):
-    m = line_re.match(line)
-    if not m:
+    # ✅ NEW FORMAT: timestamp,row,col,val
+    parts = line.split(",")
+    if len(parts) != 4:
         return None
-
-    # 1 = timestamp
-    # 2 = Row
-    # 3 = Col
-    # 4 = Value
-    timestamp = int(m.group(1))  # store in case you want it later
-    row = int(m.group(2))
-    col = int(m.group(3))
-    val = int(m.group(4))
-
-    return row, col, val
-
-
-# def parse_line(line: str):
-#     m = line_re.match(line)
-#     if not m:
-#         return None
-
-#     # NEW CAPTURE GROUPS:
-#     # 1 = timestamp
-#     # 2 = row
-#     # 3 = col
-#     # 4 = val
-#     row = int(m.group(2))
-#     col = int(m.group(3))
-#     val = int(m.group(4))
     
-#     return row, col, val
-
+    try:
+        ts = parts[0].strip()  # keep timestamp if you want it later
+        row = int(parts[1])
+        col = int(parts[2])
+        val = int(parts[3])
+        return row, col, val
+    except:
+        return None
 
 def main():
     print("🔥 Opening serial...")
@@ -86,16 +54,16 @@ def main():
 
     print("✅ Loaded max deltas:", max_peaks)
 
-    # ---- Visualization setup: 4×4 heatmap ----
+    # ---- Visualization setup: 2×2 heatmap (LERP smoothed) ----
     plt.ion()
     fig, ax = plt.subplots(figsize=(COLS, ROWS))
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_xlim(0, COLS)
     ax.set_ylim(0, ROWS)
-    ax.set_title("4×4 Node Intensity (LERP smoothed)")
+    ax.set_title("2×2 Node Intensity (LERP smoothed)")
 
-    # ✅ We now create a 4×4 grid of squares
+    # ✅ Create 2×2 grid of squares just like before
     squares = [[None]*COLS for _ in range(ROWS)]
     for r in range(ROWS):
         for c in range(COLS):
@@ -103,7 +71,7 @@ def main():
             ax.add_patch(sq)
             squares[r][c] = sq
 
-    # ✅ 4×4 independent histories
+    # ✅ 4 independent histories for the 2×2 grid
     hist = {}
     display = {}
     for r in range(ROWS):
@@ -126,14 +94,14 @@ def main():
 
             row, col, val = parsed
 
-            # ✅ Ensure we now allow all rows 0–3, cols 0–3
+            # ✅ Bounds check unchanged
             if not (0 <= row < ROWS and 0 <= col < COLS):
                 continue
 
-            # process reading through per-cell pipeline
+            # ✅ Feed into existing per-cell pipeline
             d, _ = grid._cells[(row,col)].feed(val)
 
-            # normalize per cell
+            # ✅ Normalize per cell peak delta
             md = get_max_delta(row, col)
             intensity = d / md
             if intensity < 0.0:
@@ -141,11 +109,11 @@ def main():
             elif intensity > 1.0:
                 intensity = 1.0
 
-            # ✅ Independent storage for 16 nodes
+            # ✅ Store intensity history (unchanged)
             hist[(row,col)].append(intensity)
             sample_count += 1
 
-            # ---- refresh visualization ----
+            # ✅ Refresh viz using LERP exactly like before
             if sample_count % PLOT_EVERY_N_SAMPLES == 0:
                 for r in range(ROWS):
                     for c in range(COLS):
@@ -160,7 +128,7 @@ def main():
                             nv = 1.0
                         display[(r,c)] = nv
 
-                        # ✅ Set grayscale color just like before but now 2D
+                        # ✅ Set grayscale color exactly like before
                         squares[r][c].set_facecolor((nv, nv, nv, 1.0))
 
                 fig.canvas.draw()
@@ -174,7 +142,9 @@ def main():
         ser.close()
         print("✅ Serial closed.")
         plt.ioff()
+        plt.ioff()
         plt.show()
 
 if __name__ == "__main__":
     main()
+
