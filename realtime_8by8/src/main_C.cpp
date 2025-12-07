@@ -37,7 +37,7 @@ unsigned long readGridCell(uint8_t row, uint8_t col) {
     setRow(row); // fixes which row line is connected
     setColumn(col);  // connects column lines into CH0 path
     // delayMicroseconds(5000); // 5ms settle more robust for cap
-    delay(50);  // currently set at 50ms
+    delay(25);  // currently set at 50ms
                 // need minimum 20ms delay for cap to settle well
                 // smaller delay leads to worse signal stability
     return fdc.getReading28(0);
@@ -67,7 +67,7 @@ void setup() {
 }
 
 void loop() {
-    // Serial.println("\n--- 4x4 GRID SCAN (single CH0) ---");
+    Serial.println("\n--- 8x8 GRID SCAN (FDC2214 chip with 2 MUX) ---");
     unsigned long timestamp = millis();
     // Scan up to 8 generalized channels, stop at 4 for grid
     for (uint8_t row = 0; row < 8; row++) {
@@ -82,8 +82,8 @@ void loop() {
         // if (col >= 4) break; // grid has 4 columns, ignore rest
     }
 
-    // unsigned long val = readGridCell(0, 0);
-    // Serial.println(val);
+    //unsigned long val = readGridCell(0, 0);
+    //Serial.println(val);
 
     // unsigned long val = readGridCell(heldRow, 0);
     // // Serial.print("Row "); Serial.print(heldRow);

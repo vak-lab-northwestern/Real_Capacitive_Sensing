@@ -15,10 +15,10 @@ class CellPipeline:
     def __init__(
         self,
         alpha_baseline: float = 0.0005,   # slow drift when untouched
-        press_dip: int = 40000,            # detect touch start if value falls by this much
-        release_band: int = 30000,         # consider released if val is within this of baseline
+        press_dip: int = 50000,           # detect touch start if value falls by this much
+        release_band: int = 20000,        # consider released if val is within this of baseline
         window: int = 5,                  # small buffer to look at recent samples
-        delta_decay: float = 0.75         # how fast delta decays back to zero when untouched
+        delta_decay: float = 0.1          # how fast delta decays back to zero when untouched
     ) -> None:
         self.alpha_baseline = alpha_baseline
         self.press_dip = press_dip

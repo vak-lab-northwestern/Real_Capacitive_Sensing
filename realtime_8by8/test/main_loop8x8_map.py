@@ -13,8 +13,8 @@ from calibration_store import load_max_deltas
 # -------- CONFIG --------
 PORT = "/dev/tty.usbserial-10"
 BAUD = 115200
-ROWS = 2   # ✅ now 4 rows
-COLS = 2   # ✅ 4 cols per row
+ROWS = 8   
+COLS = 8   
 CALIB_FILE = "max_deltas/cell_peaks.json"
 
 HISTORY_LEN = 200
@@ -93,7 +93,7 @@ def main():
     ax.set_yticks([])
     ax.set_xlim(0, COLS)
     ax.set_ylim(0, ROWS)
-    ax.set_title("4×4 Node Intensity (LERP smoothed)")
+    ax.set_title("8x8 Node Pressure Map Live Demo")
 
     # ✅ We now create a 4×4 grid of squares
     squares = [[None]*COLS for _ in range(ROWS)]
