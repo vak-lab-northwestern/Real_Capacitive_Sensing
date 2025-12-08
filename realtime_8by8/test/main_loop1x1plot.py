@@ -87,40 +87,32 @@ def main():
 
     print("✅ Loaded max deltas:", max_peaks)
 
-    # ---- Visualization setup: 4×4 heatmap ----
+    # -------- SELECT WHICH NODE TO PLOT --------
+    SELECTED_ROW = 0
+    SELECTED_COL = 0
+
+    # ---- Visualization setup: single node live delta plot ----
     plt.ion()
-    fig, ax = plt.subplots(figsize=(COLS, ROWS))
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_xlim(0, COLS)
-    ax.set_ylim(0, ROWS)
-    ax.set_title("8x8 Node Pressure Map Live Demo")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.set_title(f"Live Delta Plot for Node ({SELECTED_ROW}, {SELECTED_COL})")
+    ax.set_xlabel("Samples")
+    ax.set_ylabel("Delta Value")
 
-    # ✅ We now create a 4×4 grid of squares
-    squares = [[None]*COLS for _ in range(ROWS)]
-    for r in range(ROWS):
-        for c in range(COLS):
-            sq = plt.Rectangle((c, ROWS-1-r), 1, 1)
-            ax.add_patch(sq)
-            squares[r][c] = sq
+    line, = ax.plot([], [], lw=2)
+    ax.set_xlim(0, HISTORY_LEN)
+    ax.set_ylim(0, 30000)   # adjust depending on your signal magnitude
 
-    # ✅ 4×4 independent histories
-    hist = {}
-    display = {}
-    for r in range(ROWS):
-        for c in range(COLS):
-            hist[(r,c)] = deque(maxlen=HISTORY_LEN)
-            display[(r,c)] = 0.0
+    # history for selected node
+    selected_history = deque(maxlen=HISTORY_LEN)
 
     sample_count = 0
+    last_plot_time = time.time()
+    PLOT_INTERVAL = 0.05   # seconds between redraws (20 FPS)
 
     try:
-        print("🧠 Live loop running. Touch nodes to see smoothed intensity...\n(CTRL+C to exit)\n")
-        last_plot_time = time.time()
-        PLOT_INTERVAL = 1   # seconds (100 ms)
-        
+        print("🧠 Live loop running. Showing delta value for selected node...\n(CTRL+C to exit)\n")
+
         while True:
-            
             raw_line = ser.readline().decode(errors="ignore").strip()
             if not raw_line:
                 continue
@@ -131,55 +123,39 @@ def main():
 
             row, col, val = parsed
 
-            # ✅ Ensure we now allow all rows 0–3, cols 0–3
             if not (0 <= row < ROWS and 0 <= col < COLS):
                 continue
 
             # process reading through per-cell pipeline
             d, _ = grid._cells[(row,col)].feed(val)
 
-            # normalize per cell
-            md = get_max_delta(row, col)
-            intensity = d / md
-            if intensity < 0.0:
-                intensity = 0.0
-            elif intensity > 1.0:
-                intensity = 1.0
+            # ✔ If this is the selected node, store its raw delta
+            if row == SELECTED_ROW and col == SELECTED_COL:
+                selected_history.append(d)
 
-            # ✅ Independent storage for 16 nodes
-            hist[(row,col)].append(intensity)
-            sample_count += 1
+            # ---- refresh visualization ----
             now = time.time()
-            # if counter >= 100:
             if now - last_plot_time >= PLOT_INTERVAL:
-                # ---- refresh visualization ----
-                # if sample_count % PLOT_EVERY_N_SAMPLES == 0:
                 last_plot_time = now
 
-                for r in range(ROWS):
-                    for c in range(COLS):
-                        if not hist[(r,c)]:
-                            continue
-                        target = hist[(r,c)][-1]
-                        cur = display[(r,c)]
-                        nv = cur + (target - cur) * LERP_ALPHA
-                        if nv < 0.0:
-                            nv = 0.0
-                        elif nv > 1.0:
-                            nv = 1.0
-                        display[(r,c)] = nv
+                y = list(selected_history)
+                x = list(range(len(y)))
 
-                        # ✅ Set grayscale color just like before but now 2D
-                        squares[r][c].set_facecolor((nv, nv, nv, 1.0))
+                line.set_data(x, y)
 
+                # autoscale Y range to fit signal
+                if y:
+                    ax.set_ylim(min(y) - 100, max(y) + 100)
+
+                ax.set_xlim(0, HISTORY_LEN)
                 fig.canvas.draw()
                 fig.canvas.flush_events()
-                counter = 0
 
-            time.sleep(0.001)
+            time.sleep(0.0005)
 
     except KeyboardInterrupt:
         print("\n🛑 Stopping reader...")
+
     finally:
         ser.close()
         print("✅ Serial closed.")
@@ -188,4 +164,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

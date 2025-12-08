@@ -73,7 +73,6 @@ def parse_line(line: str):
 
 
 def main():
-    counter = 0
     print("🔥 Opening serial...")
     ser = serial.Serial(PORT, BAUD, timeout=0.1)
     time.sleep(2.0)
@@ -116,11 +115,7 @@ def main():
 
     try:
         print("🧠 Live loop running. Touch nodes to see smoothed intensity...\n(CTRL+C to exit)\n")
-        last_plot_time = time.time()
-        PLOT_INTERVAL = 1   # seconds (100 ms)
-        
         while True:
-            
             raw_line = ser.readline().decode(errors="ignore").strip()
             if not raw_line:
                 continue
@@ -149,13 +144,9 @@ def main():
             # ✅ Independent storage for 16 nodes
             hist[(row,col)].append(intensity)
             sample_count += 1
-            now = time.time()
-            # if counter >= 100:
-            if now - last_plot_time >= PLOT_INTERVAL:
-                # ---- refresh visualization ----
-                # if sample_count % PLOT_EVERY_N_SAMPLES == 0:
-                last_plot_time = now
 
+            # ---- refresh visualization ----
+            if sample_count % PLOT_EVERY_N_SAMPLES == 0:
                 for r in range(ROWS):
                     for c in range(COLS):
                         if not hist[(r,c)]:
@@ -174,7 +165,6 @@ def main():
 
                 fig.canvas.draw()
                 fig.canvas.flush_events()
-                counter = 0
 
             time.sleep(0.001)
 
@@ -188,4 +178,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

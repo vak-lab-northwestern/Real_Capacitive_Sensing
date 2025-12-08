@@ -2,13 +2,21 @@
 #include "FDC2214.h"
 
 // ===== Two MUX pin labels (distinct ICs) =====
-const uint8_t COL_MUX_A = 5;
-const uint8_t COL_MUX_B = 6;
-const uint8_t COL_MUX_C = 7;
+// const uint8_t COL_MUX_A = 5;
+// const uint8_t COL_MUX_B = 6;
+// const uint8_t COL_MUX_C = 7;
 
-const uint8_t ROW_MUX_A = 2;
-const uint8_t ROW_MUX_B = 3;
-const uint8_t ROW_MUX_C = 4;
+// const uint8_t ROW_MUX_A = 2;
+// const uint8_t ROW_MUX_B = 3;
+// const uint8_t ROW_MUX_C = 4;
+
+const uint8_t COL_MUX_A = 2;
+const uint8_t COL_MUX_B = 3;
+const uint8_t COL_MUX_C = 4;
+
+const uint8_t ROW_MUX_A = 5;
+const uint8_t ROW_MUX_B = 6;
+const uint8_t ROW_MUX_C = 7;
 
 // Create FDC instance at default addr (0x2A or 0x2B allowed)
 FDC2214 fdc(FDC2214_I2C_ADDR_0);
