@@ -38,18 +38,18 @@ void setup() {
 
 void loop() {
   /* Storing data into list but not necessary since it is not being processed here */
-  unsigned long capa0[CHAN_COUNT]; 
+  // unsigned long capa0[CHAN_COUNT]; 
   // unsigned long capa1[CHAN_COUNT];
 
-  /* Continuous reading of 28 bit data */
-  for (int i = 0; i < CHAN_COUNT; i++){ 
-    capa0[i]= capsense0.getReading28(i);//  
-    // capa1[i]= capsense1.getReading28(i);
-  }
+  // /* Continuous reading of 28 bit data */
+  // for (int i = 0; i < CHAN_COUNT; i++){ 
+  //   capa0[i]= capsense0.getReading28(i);//  
+  //   // capa1[i]= capsense1.getReading28(i);
+  // }
 
   /* Printing results for Chip 0 (0x2A) in Python readable format */
   for (int i = 0; i < CHAN_COUNT; i++) {
-    Serial.print(capa0[i]);
+    Serial.print(capsense0.getReading28(i));
     if (i < CHAN_COUNT - 1) Serial.print(", ");
   }
 
@@ -59,8 +59,5 @@ void loop() {
     // if (i < CHAN_COUNT - 1) Serial.print(", ");
   // }
   Serial.println();
-
-  /* Sample Rate */
-  delay(100); 
 }
 
