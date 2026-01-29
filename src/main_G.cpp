@@ -1,8 +1,11 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <stdio.h>
-#include "FDC2214.h"
 #include <math.h>
+
+#include "FDC2214.h"
+#include "cap.h"
+
 /*
   FDC2214 Continuous Time-Division Multiplexing (TDM, Differential)
   Two 4:1 analog multiplexer connected to CH0 of FDC2214.
@@ -48,24 +51,6 @@ void setupMuxPins() {
   pinMode(MUX2_S1, OUTPUT);
 }
 
-double computeCap_pf(unsigned long reading) {
-  const double fref = 40000000.0;  // 40 MHz internal reference
-  const double L = 18e-6;          // 18 uH inductor
-  const double Cboard = 33e-12;    // 33 pF fixed board capacitor
-  const double Cpar = 3e-12;       // parasitics (adjust if needed)
-
-  // Convert raw code → frequency
-  double fs = (fref * (double)reading) / 268435456.0; // 2^28
-
-  // LC resonance equation → total capacitance
-  double Ctotal = 1.0 / ( (2.0 * M_PI * fs) * (2.0 * M_PI * fs) * L );
-
-  // Remove board + parasitic capacitance
-  double Csensor = Ctotal - (Cboard + Cpar);
-
-  return Csensor * 1e12; // convert to picofarads
-}
-
 void setup() {
   Wire.begin();
   Wire.setClock(400000);
@@ -101,7 +86,6 @@ void loop() {
 
   for (int i = 0; i < TOTAL_READINGS; i++) {
     Serial.print(readings[i]);
-    if (i < TOTAL_READINGS - 1) Serial.print(",");
+    if (i < TOTAL_READINGS - 1) Serial.println(",");
   }
-  Serial.println();
 }
