@@ -5,7 +5,7 @@
 #include <math.h>
 /*
   FDC2214 Continuous Time-Division Multiplexing (TDM, Differential)
-  One 8:1 analog multiplexer connected to CH0 of FDC2214.
+  Two 4:1 analog multiplexer connected to CH0 of FDC2214.
   Output format to Serial (one line per full scan):
   MUX1_0,MUX1_1,MUX1_2,MUX1_3,MUX1_4,MUX1_5,MUX1_6,MUX1_7\n
   where:
@@ -24,13 +24,6 @@
 #define MUX_STATES        4   // 4 states for 2 select lines (4:1 mux)
 #define FDC_CHANNELS       1   // Using 1 FDC channel (CH0)
 #define TOTAL_READINGS     16  // 8 readings from MUX1
-#define SETTLE_US 5500
-
-// Calculated conversion time per channel: ~1.68ms
-// For 2 channels: one full cycle = ~3.4ms
-// Wait for 2 full cycles to ensure fresh data = ~7ms
-// Add safety margin = 10ms total
-#define FDC_CYCLE_WAIT_MS 100
 
 FDC2214 fdc1(FDC2214_I2C_ADDR_0);
 
@@ -101,9 +94,6 @@ void loop() {
 
     for (int mux2 = 0; mux2 < MUX_STATES; mux2++) {
       setMuxPins(MUX2_S0, MUX2_S1, mux2);
-
-      //delayMicroseconds(SETTLE_US);
-      //delay(FDC_CYCLE_WAIT_MS);
       unsigned long fre = fdc1.getReading28(0);
       readings[index++] = computeCap_pf(fre);
     }

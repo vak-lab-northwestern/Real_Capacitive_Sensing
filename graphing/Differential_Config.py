@@ -8,13 +8,13 @@ import time
 import threading
 import tkinter as tk
 from tkinter import filedialog
-from cmcrameri import cm
+# from cmcrameri import cmr
 
 
 # Settings
 serialPort = "/dev/cu.usbserial-10"
 baudrate = 115200
-channel_num = 8
+channel_num = 1
 channel_title = "Live Capacitance from 8 Channels" 
 
 #  Calibration constants 
@@ -102,7 +102,7 @@ def start_logging(event):
     try:
         csv_file = open(fname, mode="w", newline="")
         csv_writer = csv.writer(csv_file)
-        csv_writer.writerow(["timestamp"] + [f"CH{i}_pF" for i in range(channel_num)])
+        csv_writer.writerow(["timestamp"] + [f"CH{i+1}_pF" for i in range(channel_num)])
         csv_file.flush()
         logging_enabled = True
         btn_start.label.set_text("Logging: ON")
