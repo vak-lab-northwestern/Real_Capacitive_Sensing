@@ -41,6 +41,8 @@ line_re = re.compile(r"\s*(\d+)\s*,\s*Row\s+(\d+)\s*,\s*Col\s+(\d+)\s*:\s*(\d+)"
 def parse_line(line: str):
     m = line_re.match(line)
     if not m:
+        print(line)
+        print("Line does not match")
         return None
 
     # 1 = timestamp

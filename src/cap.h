@@ -17,5 +17,9 @@ double computeCap_pf(unsigned long reading) {
   // Remove board + parasitic capacitance
   double Csensor = Ctotal - (Cboard + Cpar);
 
-  return Csensor * 1e12; // convert to picofarads
+  double picofarads = Csensor * 1e12; // convert to picofarads
+  if(picofarads<0){ // Edge case detection
+    return 0.0;
+  }
+  return picofarads;
 }

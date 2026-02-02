@@ -40,8 +40,8 @@ void initFDC(FDC2214 &fdc, const char *name) {
   // 0x3 = binary 0011 = CH0 and CH1 enabled
   // 0x4 = autoscan sequence CH0->CH1
   bool ok = fdc.begin(0x1, 0x4, 0x5, true);   
-  if (ok) Serial.print(name), Serial.println(" OK");
-  else Serial.print(name), Serial.println(" FAIL");
+  // if (ok) Serial.print(name), Serial.println(" OK");
+  // else Serial.print(name), Serial.println(" FAIL");
 }
 
 void setupMuxPins() {
@@ -64,15 +64,14 @@ void setup() {
   
   initFDC(fdc1, "FDC");
   
-  Serial.println("Starting multiplexed capacitance scan (RAW)...");
+  // Serial.println("Starting multiplexed capacitance scan (RAW)...");
   
   // Let FDC stabilize with initial mux state
   delay(100);
 }
 
 void loop() {
-  uint32_t readings[TOTAL_READINGS];
-  int index = 0;
+
 
   for (int mux1 = 0; mux1 < MUX_STATES; mux1++) {
     setMuxPins(MUX1_S0, MUX1_S1, mux1);
@@ -80,12 +79,13 @@ void loop() {
     for (int mux2 = 0; mux2 < MUX_STATES; mux2++) {
       setMuxPins(MUX2_S0, MUX2_S1, mux2);
       unsigned long fre = fdc1.getReading28(0);
-      readings[index++] = computeCap_pf(fre);
-    }
-  }
+      int val = computeCap_pf(fre);
 
-  for (int i = 0; i < TOTAL_READINGS; i++) {
-    Serial.print(readings[i]);
-    if (i < TOTAL_READINGS - 1) Serial.println(",");
+      char buf[64];
+      snprintf(buf, sizeof(buf),
+         "%lu, Row %d, Col %d : %d",
+         millis(), mux1, mux2, val);
+      Serial.println(buf);
+    }
   }
 }
