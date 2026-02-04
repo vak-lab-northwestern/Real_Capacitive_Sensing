@@ -1,98 +1,49 @@
-# cell_pipeline.py
-
-from collections import deque
-
-
 class CellPipeline:
-    """
-    Stateful pipeline for a single sensor cell.
-
-    Usage:
-        cell = CellPipeline()
-        delta, touched = cell.feed(raw_value)
-    """
-
     def __init__(
         self,
-        alpha_baseline: float = 0.05,   # slow drift when untouched
-        press_dip: int = 5000,            # detect touch start if value falls by this much
-        release_band: int = 9000,         # consider released if val is within this of baseline
-        window: int = 5,                  # small buffer to look at recent samples
-        delta_decay: float = 0.75         # how fast delta decays back to zero when untouched
-    ) -> None:
+        alpha_baseline=0.02,
+        press_dip=70,
+        release_band=15,
+    ):
         self.alpha_baseline = alpha_baseline
         self.press_dip = press_dip
         self.release_band = release_band
-        self.window = window
-        self.delta_decay = delta_decay
 
-        # internal state
-        self.baseline: float | None = None
-        self.delta: float = 0.0
-        self.is_touched: bool = False
-        self.press_buf: deque[int] = deque(maxlen=window)
-
-    def reset(self) -> None:
-        """Reset internal state (used if you want to re-baseline)."""
         self.baseline = None
-        self.delta = 0.0
+        self.last_val = None
         self.is_touched = False
-        self.press_buf.clear()
 
-    def feed(self, val: int) -> tuple[float, bool]:
-        """
-        Process one raw integer reading for this cell.
-
-        Returns:
-            delta (float): processed delta (>= 0, decays to 0 when untouched)
-            is_touched (bool): whether touch is currently detected
-        """
-        # push into detection buffer
-        self.press_buf.append(val)
-
-        # initialize baseline on first valid read
+    def feed(self, val: int):
+        # ---- FIRST SAMPLE ----
         if self.baseline is None:
             self.baseline = float(val)
-            # first sample, nothing fancy yet
+            self.last_val = val
             return 0.0, False
 
-        # ---- TOUCH DETECTION (on DIP START) ----
-        if len(self.press_buf) > 1:
-            prev_val = self.press_buf[-2]
-        else:
-            prev_val = val
+        # ---- DELTA (same cell, previous frame) ----
+        delta = float(val - self.last_val)
 
-        if (not self.is_touched) and (prev_val - val) > self.press_dip:
-            self.is_touched = True
+        # ---- PRESSURE ----
+        pressure = self.baseline - val
+        if pressure < 0:
+            pressure = 0.0
 
-        # ---- RELEASE DETECTION (absolute hysteresis) ----
-        if self.is_touched and abs(self.baseline - val) < self.release_band:
-            self.is_touched = False
-
-        # ---- BASELINE UPDATE (only when UNTOUCHED) ----
+        # ---- TOUCH FSM ----
         if not self.is_touched:
-            # exponential moving average toward current val
+            if pressure > self.press_dip:
+                self.is_touched = True
+        else:
+            if pressure < self.release_band:
+                self.is_touched = False
+
+        # ---- BASELINE UPDATE ----
+        if not self.is_touched:
             self.baseline = (
                 (1.0 - self.alpha_baseline) * self.baseline
                 + self.alpha_baseline * float(val)
             )
 
-            # sanity reset to avoid catastrophic drift
-            if self.baseline < val / 20.0 or self.baseline > val * 20.0:
-                self.baseline = float(val)
+        # ---- UPDATE LAST ----
+        self.last_val = val
 
-        # ---- DELTA UPDATE ----
-        if not self.is_touched:
-            # decay back toward 0 when untouched
-            self.delta *= (1.0 - self.delta_decay)
-            if abs(self.delta) < 1.0:
-                self.delta = 0.0
-        else:
-            # "real" signal when touched
-            self.delta = self.baseline - float(val)
-
-        # clamp negative noise
-        if self.delta < 0.0:
-            self.delta = 0.0
-
-        return self.delta, self.is_touched
+        return delta, self.is_touched

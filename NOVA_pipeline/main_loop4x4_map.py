@@ -13,8 +13,8 @@ from calibration_store import load_max_deltas
 # -------- CONFIG --------
 PORT = "/dev/tty.usbserial-10"
 BAUD = 115200
-ROWS = 2   # ✅ now 4 rows
-COLS = 2   # ✅ 4 cols per row
+ROWS = 4   # ✅ now 4 rows
+COLS = 4   # ✅ 4 cols per row
 CALIB_FILE = "max_deltas/cell_peaks.json"
 
 HISTORY_LEN = 200

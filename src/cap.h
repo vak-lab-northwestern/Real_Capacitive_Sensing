@@ -19,7 +19,7 @@ double computeCap_pf(unsigned long reading) {
 
   double picofarads = Csensor * 1e12; // convert to picofarads
   if(picofarads<0){ // Edge case detection
-    return 0.0;
+    picofarads = 0.0;
   }
   return picofarads;
 }

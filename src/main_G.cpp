@@ -86,6 +86,7 @@ void loop() {
          "%lu, Row %d, Col %d : %d",
          millis(), mux1, mux2, val);
       Serial.println(buf);
+      delay(50);
     }
   }
 }
