@@ -14,36 +14,9 @@ from tkinter import filedialog
 # Settings
 serialPort = "/dev/cu.usbserial-10"
 baudrate = 115200
-channel_num = 1
+channel_num = 16
 channel_title = "Live Capacitance from 8 Channels" 
 
-#  Calibration constants 
-ref_clock = 40e6  # Hz
-scale_factor = ref_clock / (2 ** 28)   
-inductance = 18e-6  # H (your actual coil)
-C_FIXED = 14.63e-12      # Short the two wires to find C_Fixed
-
-#  Conversion functions 
-def raw_to_frequency(raw):
-    return raw * scale_factor
-
-def frequency_to_total_capacitance(freq_hz):
-    return 1.0 / ((2 * math.pi * freq_hz) ** 2 * inductance)
-
-def calibrate_c_fixed(raw_short):
-    """Compute fixed parallel capacitance from shorted-plate reading."""
-    freq_short = raw_to_frequency(raw_short)
-    return frequency_to_total_capacitance(freq_short)
-
-def raw_to_sensor_capacitance(raw):
-    """Convert raw data to sensor capacitance (pF) using calibrated C_FIXED."""
-    global C_FIXED
-    freq = raw_to_frequency(raw)
-    if freq <= 0:
-        return 0.0
-    c_total = frequency_to_total_capacitance(freq)
-    c_sense = c_total - C_FIXED
-    return c_sense * 1e12  # pF
 
 for i in range(channel_num):
     if channel_num == 1:
@@ -154,12 +127,8 @@ def serial_worker():
             if not raw_line:
                 continue
             parts = raw_line.split(",")
-            # if len(parts) != channel_num:
-            #     print(f"[DEBUG] Skipping line: expecting {channel_num} parts, got {len(parts)}")
-            #     continue
 
-            raw_vals = list(map(int, parts))
-            caps = [raw_to_sensor_capacitance(r) for r in raw_vals]
+            caps = [float(p) for p in parts]
             now = time.time()
 
             # update buffers once per reading
