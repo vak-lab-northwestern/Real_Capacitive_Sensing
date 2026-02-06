@@ -2,7 +2,7 @@ class CellPipeline:
     def __init__(
         self,
         alpha_baseline=0.02,
-        press_dip=70,
+        press_dip=60,
         release_band=15,
     ):
         self.alpha_baseline = alpha_baseline

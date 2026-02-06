@@ -11,10 +11,10 @@ from grid_manager import GridManager
 from calibration_store import load_max_deltas
 
 # -------- CONFIG --------
-PORT = "/dev/tty.usbserial-10"
+PORT = "/dev/tty.usbserial-110"
 BAUD = 115200
-ROWS = 4   # ✅ now 4 rows
-COLS = 4   # ✅ 4 cols per row
+ROWS = 4   #  now 4 rows
+COLS = 4   #  4 cols per row
 CALIB_FILE = "max_deltas/cell_peaks.json"
 
 HISTORY_LEN = 200
@@ -23,59 +23,31 @@ LERP_ALPHA = 1
 # ------------------------
 
 # Example line: "Row 0, Col 2 : 123456"
-# ✅ We now allow ANY row/col 0–3 without regex rewrite
+# We now allow ANY row/col 0–3 without regex rewrite
 # line_re = re.compile(r"Row\s+(\d+),\s*Col\s+(\d+)\s*:\s*(\d+)")
 # line_re = re.compile(r"([\d:.]+),\s*(\d+),\s*(\d+),\s*(\d+)")
 line_re = re.compile(r"\s*(\d+)\s*,\s*Row\s+(\d+)\s*,\s*Col\s+(\d+)\s*:\s*(\d+)")
 
 
-# def parse_line(line: str):
-#     m = line_re.match(line)
-#     if not m:
-#         return None
-#     row = int(m.group(1))
-#     col = int(m.group(2))
-#     val = int(m.group(3))
-#     return row, col, val
-
 def parse_line(line: str):
     m = line_re.match(line)
     if not m:
-        print(line)
-        print("Line does not match")
         return None
 
+    # NEW CAPTURE GROUPS:
     # 1 = timestamp
-    # 2 = Row
-    # 3 = Col
-    # 4 = Value
-    timestamp = int(m.group(1))  # store in case you want it later
+    # 2 = row
+    # 3 = col
+    # 4 = val
     row = int(m.group(2))
     col = int(m.group(3))
     val = int(m.group(4))
-
+    
     return row, col, val
 
 
-# def parse_line(line: str):
-#     m = line_re.match(line)
-#     if not m:
-#         return None
-
-#     # NEW CAPTURE GROUPS:
-#     # 1 = timestamp
-#     # 2 = row
-#     # 3 = col
-#     # 4 = val
-#     row = int(m.group(2))
-#     col = int(m.group(3))
-#     val = int(m.group(4))
-    
-#     return row, col, val
-
-
 def main():
-    print("🔥 Opening serial...")
+    print("Opening serial...")
     ser = serial.Serial(PORT, BAUD, timeout=0.1)
     time.sleep(2.0)
 
@@ -83,21 +55,24 @@ def main():
     max_peaks = load_max_deltas(CALIB_FILE)
 
     def get_max_delta(r, c):
-        v = max_peaks.get((r, c), 1.0)
-        return 1.0 if v <= 0.0 else v
+        # v = max_peaks.get((r, c), 1.0)
+        # return 1.0 if v <= 0.0 else v
+        return 600  # TEMP OVERRIDE FOR TESTING
 
-    print("✅ Loaded max deltas:", max_peaks)
+    print("Loaded max deltas:", max_peaks)
 
     # ---- Visualization setup: 4×4 heatmap ----
     plt.ion()
     fig, ax = plt.subplots(figsize=(COLS, ROWS))
+
     ax.set_xticks([])
     ax.set_yticks([])
+
     ax.set_xlim(0, COLS)
     ax.set_ylim(0, ROWS)
     ax.set_title("4×4 Node Intensity (LERP smoothed)")
 
-    # ✅ We now create a 4×4 grid of squares
+    # We now create a 4×4 grid of squares
     squares = [[None]*COLS for _ in range(ROWS)]
     for r in range(ROWS):
         for c in range(COLS):
@@ -105,7 +80,7 @@ def main():
             ax.add_patch(sq)
             squares[r][c] = sq
 
-    # ✅ 4×4 independent histories
+    # 4×4 independent histories
     hist = {}
     display = {}
     for r in range(ROWS):
@@ -116,7 +91,7 @@ def main():
     sample_count = 0
 
     try:
-        print("🧠 Live loop running. Touch nodes to see smoothed intensity...\n(CTRL+C to exit)\n")
+        print("Live loop running. Touch nodes to see smoothed intensity...\n(CTRL+C to exit)\n")
         while True:
             raw_line = ser.readline().decode(errors="ignore").strip()
             if not raw_line:
@@ -128,22 +103,25 @@ def main():
 
             row, col, val = parsed
 
-            # ✅ Ensure we now allow all rows 0–3, cols 0–3
+            # Ensure we now allow all rows 0–3, cols 0–3
             if not (0 <= row < ROWS and 0 <= col < COLS):
                 continue
 
             # process reading through per-cell pipeline
             d, _ = grid._cells[(row,col)].feed(val)
 
-            # normalize per cell
-            md = get_max_delta(row, col)
+            if val > 0: # Only print for active nodes
+                md = get_max_delta(row, col)
+                intensity = d / md
+                print(f"R{row} C{col} | Raw: {val} | Delta: {d} | Intensity: {intensity:.2f}")
+        # ----------------------------
             intensity = d / md
             if intensity < 0.0:
                 intensity = 0.0
             elif intensity > 1.0:
                 intensity = 1.0
 
-            # ✅ Independent storage for 16 nodes
+            # Independent storage for 16 nodes
             hist[(row,col)].append(intensity)
             sample_count += 1
 
@@ -162,7 +140,7 @@ def main():
                             nv = 1.0
                         display[(r,c)] = nv
 
-                        # ✅ Set grayscale color just like before but now 2D
+                        # Set grayscale color just like before but now 2D
                         squares[r][c].set_facecolor((nv, nv, nv, 1.0))
 
                 fig.canvas.draw()
@@ -171,10 +149,10 @@ def main():
             time.sleep(0.001)
 
     except KeyboardInterrupt:
-        print("\n🛑 Stopping reader...")
+        print("\n Stopping reader...")
     finally:
         ser.close()
-        print("✅ Serial closed.")
+        print("Serial closed.")
         plt.ioff()
         plt.show()
 
