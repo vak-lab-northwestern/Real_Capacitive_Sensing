@@ -1,9 +1,9 @@
 class CellPipeline:
     def __init__(
         self,
-        alpha_baseline=0.02,
-        press_dip=60,
-        release_band=15,
+        alpha_baseline=0.01,
+        press_dip=2,
+        release_band=1,
     ):
         self.alpha_baseline = alpha_baseline
         self.press_dip = press_dip
@@ -24,7 +24,8 @@ class CellPipeline:
         delta = float(val - self.last_val)
 
         # ---- PRESSURE ----
-        pressure = self.baseline - val
+        pressure = self.last_val - val
+
         if pressure < 0:
             pressure = 0.0
 
@@ -37,13 +38,20 @@ class CellPipeline:
                 self.is_touched = False
 
         # ---- BASELINE UPDATE ----
-        if not self.is_touched:
+        # if not self.is_touched:
+        #     self.baseline = (
+        #         (1.0 - self.alpha_baseline) * self.baseline
+        #         + self.alpha_baseline * float(val)
+        #     )
+
+        if not self.is_touched and pressure < self.press_dip * 0.5:
             self.baseline = (
                 (1.0 - self.alpha_baseline) * self.baseline
                 + self.alpha_baseline * float(val)
             )
 
+
         # ---- UPDATE LAST ----
         self.last_val = val
 
-        return delta, self.is_touched
+        return pressure, self.is_touched

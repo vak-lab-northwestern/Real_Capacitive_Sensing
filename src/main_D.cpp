@@ -2,6 +2,8 @@
 #include <Wire.h>
 #include "FDC2214.h"
 
+#include "cap.h"
+
 /*
   Working code for 2 chip configuration
   Initiating FDC2214 chip addresses 
@@ -13,7 +15,7 @@ FDC2214 capsense0(FDC2214_I2C_ADDR_0);
 // FDC2214 capsense1(FDC2214_I2C_ADDR_1);
 
 // Variable definition
-#define CHAN_COUNT 2
+#define CHAN_COUNT 1
 
 void setup() {
   
@@ -49,7 +51,7 @@ void loop() {
 
   /* Printing results for Chip 0 (0x2A) in Python readable format */
   for (int i = 0; i < CHAN_COUNT; i++) {
-    Serial.print(capsense0.getReading28(i));
+    Serial.print(computeCap_pf(capsense0.getReading28(i)));
     if (i < CHAN_COUNT - 1) Serial.print(", ");
   }
 

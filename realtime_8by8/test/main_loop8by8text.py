@@ -8,7 +8,7 @@ from grid_manager import GridManager
 from calibration_store import load_max_deltas
 
 # -------- CONFIG --------
-PORT = "/dev/tty.usbserial-210"
+PORT = "/dev/tty.usbserial-110"
 BAUD = 115200
 ROWS = 8
 COLS = 8

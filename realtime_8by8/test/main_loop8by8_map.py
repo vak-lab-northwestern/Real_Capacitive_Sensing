@@ -58,10 +58,20 @@ def main():
     ax.set_ylim(0, ROWS)
     ax.set_title("8x8 Node Pressure Map Live Demo")
 
+    # squares = [[None] * COLS for _ in range(ROWS)]
+    # for r in range(ROWS):
+    #     for c in range(COLS):
+    #         sq = plt.Rectangle((c, ROWS - 1 - r), 1, 1)
+    #         ax.add_patch(sq)
+    #         squares[r][c] = sq
+
     squares = [[None] * COLS for _ in range(ROWS)]
     for r in range(ROWS):
         for c in range(COLS):
-            sq = plt.Rectangle((c, ROWS - 1 - r), 1, 1)
+            x_pos = c 
+            y_pos = (ROWS - 1 - r)  # Row 0 is top (Y=3), Row 3 is bottom (Y=0)
+            
+            sq = plt.Rectangle((x_pos, y_pos), 1, 1, color='black')
             ax.add_patch(sq)
             squares[r][c] = sq
 
@@ -74,6 +84,8 @@ def main():
             display[(r, c)] = 0.0
 
     last_plot_time = time.time()
+
+
 
     try:
         print("🧠 Live loop running. Touch nodes to see intensity...\n(CTRL+C to exit)\n")
@@ -92,13 +104,17 @@ def main():
                 continue
 
             cell = grid[row][col]
-            delta, touched = cell.feed(val)
+            pressure, touched = cell.feed(val)
+
+            # print("DEBUG:", row, col, "delta:", delta, "touched:", touched)
 
             if touched:
-                # normalize intensity
-                print("Row:", row, "Col:", col, "Diff:", delta, "\n")
-                md = get_max_delta(row, col)
-                intensity = max(0.0, min(delta / md, 1.0))
+                # print("delta:", delta)
+                # # normalize intensity
+                # print("Row:", row, "Col:", col, "Diff:", delta, "\n")
+                # md = get_max_delta(row, col)
+                # intensity = max(0.0, min(pressure / md, 1.0))
+                intensity = 1.0
                 hist[(row, col)].append(intensity)
             else:
                 hist[(row, col)].append(0.0)  # not touched → fade out

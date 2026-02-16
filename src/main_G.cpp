@@ -16,11 +16,11 @@
 */
 
 // MUX pin mapping 
-#define MUX1_S0 2 // LSB   
-#define MUX1_S1 3 // MSB
+#define MUX2_S0 2 // LSB   
+#define MUX2_S1 3 // MSB
 
-#define MUX2_S0 5 // LSB
-#define MUX2_S1 6 // MSB
+#define MUX1_S0 5 // LSB
+#define MUX1_S1 6 // MSB
 
 // Constants
 #define MUX_STATES        4   // 4 states for 2 select lines (4:1 mux)
@@ -113,5 +113,5 @@ void loop() {
       Serial.print(","); // Only add comma between values
     }
   }
-  Serial.println(); // The critical newline that Python's readline() waits for
+  Serial.println(); //
 }

@@ -12,10 +12,10 @@ from tkinter import filedialog
 
 
 # Settings
-serialPort = "/dev/cu.usbserial-10"
+serialPort = "/dev/cu.usbserial-110"
 baudrate = 115200
-channel_num = 16
-channel_title = "Live Capacitance from 8 Channels" 
+channel_num = 1
+channel_title = "Live Capacitance from 1 Channel" 
 
 
 for i in range(channel_num):
@@ -39,6 +39,7 @@ plt.ion()
 fig, ax = plt.subplots()
 lines = [ax.plot(list(ch[i]), label=f"CH{i+1}")[0] for i in range(channel_num)]
 ax.legend()
+ax.set_ylim(315, 345)
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Δ Capacitance (pF)")
 ax.set_title(channel_title) 
