@@ -12,7 +12,7 @@ from tkinter import filedialog
 serialPort = "/dev/tty.usbserial-110"
 baudrate = 115200
 channel_num = 16
-buffer_len = 100
+buffer_len = 10
 
 #  State Variables 
 logging_enabled = False

@@ -27,6 +27,8 @@
 #define FDC_CHANNELS       1   // Using 1 FDC channel (CH0)
 #define TOTAL_READINGS     16  
 
+#define SCAN_PRINT 16
+
 FDC2214 fdc1(FDC2214_I2C_ADDR_0);
 
 void setMuxPins(int s0, int s1, int state) {
@@ -62,6 +64,8 @@ void setup() {
   setMuxPins(MUX2_S0, MUX2_S1, 0);
   
   initFDC(fdc1, "FDC");
+
+  fdc1.enterSleepMode(); 
   
   // Serial.println("Starting multiplexed capacitance scan (RAW)...");
   
@@ -96,22 +100,26 @@ void loop() {
 
   for (int mux1 = 0; mux1 < MUX_STATES; mux1++) {
     setMuxPins(MUX1_S0, MUX1_S1, mux1);
+    delay(30);
     for (int mux2 = 0; mux2 < MUX_STATES; mux2++) {
       setMuxPins(MUX2_S0, MUX2_S1, mux2);
       
-      delay(15); // Give the FDC time to settle after MUX switch
+      delay(25); // Give the FDC time to settle after MUX switch
       
+      fdc1.triggerSingleConversion(0); // Trigger conversion for CH0
+
       unsigned long raw = fdc1.getReading28(0);
       current_scan[idx++] = computeCap_pf(raw);
     }
   }
 
   // Print all 16 values on one line for the Python script
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < SCAN_PRINT; i++) {
     Serial.print(current_scan[i], 4); // Print with 4 decimal places
-    if (i < 15) {
+    if (i < SCAN_PRINT - 1) {
       Serial.print(","); // Only add comma between values
     }
   }
   Serial.println(); //
+  fdc1.enterSleepMode(); // Sleep between scans to save power
 }
