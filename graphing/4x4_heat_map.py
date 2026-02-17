@@ -42,9 +42,12 @@ while True:
         values = line.split(",")
         if len(values) != 16:
             continue
-
+        
         nums = np.array([float(v) for v in values])
         frame = nums.reshape((ROWS, COLS))
+        
+        if not np.all(np.isfinite(frame)):
+            continue
 
         # ===== BASELINE COLLECTION =====
         if baseline is None:
