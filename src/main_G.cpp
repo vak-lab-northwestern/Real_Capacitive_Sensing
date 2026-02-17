@@ -79,6 +79,8 @@ void setup() {
 
 //     for (int mux2 = 0; mux2 < MUX_STATES; mux2++) {
 //       setMuxPins(MUX2_S0, MUX2_S1, mux2);
+//           fdc1.triggerSingleConversion(0); // Trigger conversion for CH0
+
 //       unsigned long fre = fdc1.getReading28(0);
 //       int val = computeCap_pf(fre);
 
@@ -87,9 +89,11 @@ void setup() {
 //          "%lu, Row %d, Col %d : %d",
 //          millis(), mux1, mux2, val);
 //       Serial.println(buf);
-//       delay(50);
+//       // delay(50);
 //     }
 //   }
+//    fdc1.enterSleepMode(); // Sleep between scans to save power
+
 // }
 
 
@@ -100,11 +104,11 @@ void loop() {
 
   for (int mux1 = 0; mux1 < MUX_STATES; mux1++) {
     setMuxPins(MUX1_S0, MUX1_S1, mux1);
-    delay(30);
+    // delay(30);
     for (int mux2 = 0; mux2 < MUX_STATES; mux2++) {
       setMuxPins(MUX2_S0, MUX2_S1, mux2);
       
-      delay(25); // Give the FDC time to settle after MUX switch
+      // delay(25); // Give the FDC time to settle after MUX switch
       
       fdc1.triggerSingleConversion(0); // Trigger conversion for CH0
 
