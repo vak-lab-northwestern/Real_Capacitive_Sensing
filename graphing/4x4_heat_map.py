@@ -1,6 +1,8 @@
 import serial
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
 
 # ====== CONFIG ======
 PORT = "/dev/tty.usbserial-110"   # <-- change this
@@ -9,7 +11,7 @@ ROWS = 4
 COLS = 4
 BASELINE_FRAMES = 10              # number of frames to average
 AUTO_SCALE = False                # True = dynamic color scale
-FIXED_RANGE = 5                   # adjust based on your signal
+FIXED_RANGE = 7                   # adjust based on your signal
 # ====================
 
 ser = serial.Serial(PORT, BAUD, timeout=1)
@@ -18,7 +20,14 @@ plt.ion()
 fig, ax = plt.subplots()
 
 data = np.zeros((ROWS, COLS))
-heatmap = ax.imshow(data, cmap='coolwarm', interpolation='nearest')
+colors = [
+    (0, 1, 0),       
+    (1, 0.5, 0), # gray for zero
+    (1, 0, 0)        # red for positive
+]
+cmap = mcolors.LinearSegmentedColormap.from_list("custom_cmap", colors)
+norm = mcolors.TwoSlopeNorm(vcenter=0, vmax=FIXED_RANGE)
+heatmap = ax.imshow(data, cmap=cmap, interpolation='nearest')
 cbar = plt.colorbar(heatmap)
 
 ax.set_title("Delta Capacitance Heatmap")
@@ -65,10 +74,10 @@ while True:
         heatmap.set_data(delta)
 
         if AUTO_SCALE:
-            heatmap.set_clim(vmin=np.min(delta), vmax=np.max(delta))
+            heatmap.set_clim( vmax=np.max(delta))
         else:
-            heatmap.set_clim(vmin=-FIXED_RANGE, vmax=FIXED_RANGE)
-
+            heatmap.set_clim(vmax=FIXED_RANGE)
+        
         plt.draw()
         plt.pause(0.01)
 
