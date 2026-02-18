@@ -21,9 +21,9 @@ fig, ax = plt.subplots()
 
 data = np.zeros((ROWS, COLS))
 colors = [
-    (0, 1, 0),       
-    (1, 0.5, 0), # gray for zero
-    (1, 0, 0)        # red for positive
+    (0, 1, 0),    # Min reading color
+    (1, 0.5, 0), 
+    (1, 0, 0)     # Max reading color
 ]
 cmap = mcolors.LinearSegmentedColormap.from_list("custom_cmap", colors)
 norm = mcolors.TwoSlopeNorm(vcenter=0, vmax=FIXED_RANGE)
