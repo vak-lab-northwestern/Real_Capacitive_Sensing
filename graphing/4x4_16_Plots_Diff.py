@@ -10,8 +10,8 @@ from tkinter import filedialog
 
 #  Settings 
 serialPort = "/dev/tty.usbserial-110"
-baudrate = 115200
-channel_num = 16
+baudrate = 250000
+channel_num = 64
 buffer_len = 10
 
 #  State Variables 
@@ -35,8 +35,11 @@ ch = [deque([0.0] * buffer_len, maxlen=buffer_len) for _ in range(channel_num)]
 #  Plot Setup 
 plt.ion()
 # Create a 4x4 grid. sharey=True keeps scales consistent across all nodes.
-fig, axes = plt.subplots(4, 4, figsize=(12, 8), sharex=True, sharey=True)
-fig.suptitle("4x4 Capacitance Sensor Grid (pF)")
+# fig, axes = plt.subplots(4, 4, figsize=(12, 8), sharex=True, sharey=True)
+# fig.suptitle("4x4 Capacitance Sensor Grid (pF)")
+
+fig, axes = plt.subplots(8, 8, figsize=(16, 12), sharex=True, sharey=True)
+fig.suptitle("8x8 Capacitance Sensor Grid (pF)")
 
 axes_flat = axes.flatten()
 lines = []

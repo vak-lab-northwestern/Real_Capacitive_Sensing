@@ -6,12 +6,13 @@ import matplotlib.colors as mcolors
 
 # ====== CONFIG ======
 PORT = "/dev/tty.usbserial-110"   # <-- change this
-BAUD = 115200
-ROWS = 4
-COLS = 4
+BAUD = 250000
+ROWS = 8
+COLS = 8
 BASELINE_FRAMES = 10              # number of frames to average
 AUTO_SCALE = False                # True = dynamic color scale
-FIXED_RANGE = 7                   # adjust based on your signal
+FIXED_RANGE = 6              # a   djust based on your signal
+TOTAL = ROWS * COLS
 # ====================
 
 ser = serial.Serial(PORT, BAUD, timeout=1)
@@ -21,7 +22,7 @@ fig, ax = plt.subplots()
 
 data = np.zeros((ROWS, COLS))
 colors = [
-    (0, 1, 0),       
+    (0, 0, 1),       
     (1, 0.5, 0), # gray for zero
     (1, 0, 0)        # red for positive
 ]
@@ -31,6 +32,8 @@ heatmap = ax.imshow(data, cmap=cmap, interpolation='nearest')
 cbar = plt.colorbar(heatmap)
 
 ax.set_title("Delta Capacitance Heatmap")
+
+
 ax.set_xlabel("MUX2 (Col)")
 ax.set_ylabel("MUX1 (Row)")
 
@@ -49,7 +52,7 @@ while True:
             continue
 
         values = line.split(",")
-        if len(values) != 16:
+        if len(values) != TOTAL:
             continue
         
         nums = np.array([float(v) for v in values])

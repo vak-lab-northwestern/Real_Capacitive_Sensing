@@ -41,6 +41,8 @@ void initFDC(FDC2214 &fdc, const char *name) {
   // 0x3 = binary 0011 = CH0 and CH1 enabled
   // 0x4 = autoscan sequence CH0->CH1
 
+  bool ok = fdc.begin(0x01, 0x04, 0x05, true); // chanMask=0x01 (CH0), autoscanSeq=0 (no autoscan), deglitchValue=0 (default), intOsc=true
+
   // if (ok) Serial.print(name), Serial.println(" OK");
   // else Serial.print(name), Serial.println(" FAIL");
 }
@@ -132,5 +134,5 @@ void loop() {
   fdc1.enterSleepMode(); // Sleep between scans to save power
   unsigned long looptime = millis();
   unsigned long period = looptime - now;
-  Serial.println(period);
+  // Serial.println(period);
 }
