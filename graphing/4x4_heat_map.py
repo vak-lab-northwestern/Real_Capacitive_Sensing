@@ -22,7 +22,7 @@ fig, ax = plt.subplots()
 
 data = np.zeros((ROWS, COLS))
 colors = [
-    (0, 0, 1),       
+    (0, 1, 0),       
     (1, 0.5, 0), # gray for zero
     (1, 0, 0)        # red for positive
 ]
