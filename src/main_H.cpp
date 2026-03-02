@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#include "FDC2214.h"
+#include <FDC2214x.h>
 #include "cap.h"
 
 /*

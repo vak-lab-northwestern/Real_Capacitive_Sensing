@@ -89,12 +89,13 @@ void FDC2214::loadSettings(uint8_t chanMask, uint8_t autoscanSeq, uint8_t deglit
 		//settle count maximized, slow application
 		//write16FDC(FDC2214_SETTLECOUNT_CH0, 0x0010);
 
-		write16FDC(FDC2214_SETTLECOUNT_CH0, 0x64);
+		//write16FDC(FDC2214_SETTLECOUNT_CH0, 0x64);
+		write16FDC(FDC2214_SETTLECOUNT_CH0, 0x0020);
 
 		//rcount maximized for highest accuracy
-		//write16FDC(FDC2214_RCOUNT_CH0, 0x0100);
+		write16FDC(FDC2214_RCOUNT_CH0, 0x0400);
 
-		write16FDC(FDC2214_RCOUNT_CH0, 0xFFFF);
+		//write16FDC(FDC2214_RCOUNT_CH0, 0xFFFF);
 
 		//no offset
 		write16FDC(FDC2214_OFFSET_CH0, 0x0000);
@@ -143,6 +144,35 @@ void FDC2214::loadSettings(uint8_t chanMask, uint8_t autoscanSeq, uint8_t deglit
     write16FDC(FDC2214_MUX_CONFIG, muxVal);  //set mux config for channels
 }
 
+
+void FDC2214::enterSleepMode() {
+    // Set bit 13 in CONFIG register to enter sleep mode
+    uint16_t config = read16FDC(FDC2214_CONFIG);
+    config |= (1 << 13);  // Set SLEEP_MODE_EN bit
+    write16FDC(FDC2214_CONFIG, config);
+}
+
+void FDC2214::exitSleepMode() {
+    // Clear bit 13 in CONFIG register to exit sleep mode
+    uint16_t config = read16FDC(FDC2214_CONFIG);
+    config &= ~(1 << 13);  // Clear SLEEP_MODE_EN bit
+    write16FDC(FDC2214_CONFIG, config);
+}
+
+void FDC2214::triggerSingleConversion(uint8_t channel) {
+    // Exit sleep mode
+    exitSleepMode();
+    
+    // Set active channel in CONFIG register (bits 15-14)
+    uint16_t config = read16FDC(FDC2214_CONFIG);
+    config &= ~(0x3 << 14);  // Clear channel bits
+    config |= (channel & 0x3) << 14;  // Set new channel
+    write16FDC(FDC2214_CONFIG, config);
+    
+    // Conversion starts automatically when exiting sleep
+    // Wait for conversion to complete (you could also poll STATUS register)
+    // Adjust based on your RCOUNT and settling time
+}
 ///**************************************************************************/
 ///*!
 //    @brief  Given a reading calculates the sensor frequency
