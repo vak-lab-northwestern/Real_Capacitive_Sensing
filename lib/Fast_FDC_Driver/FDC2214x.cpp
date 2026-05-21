@@ -90,10 +90,10 @@ void FDC2214::loadSettings(uint8_t chanMask, uint8_t autoscanSeq, uint8_t deglit
 		//write16FDC(FDC2214_SETTLECOUNT_CH0, 0x0010);
 
 		//write16FDC(FDC2214_SETTLECOUNT_CH0, 0x64);
-		write16FDC(FDC2214_SETTLECOUNT_CH0, 0x0020);
+		write16FDC(FDC2214_SETTLECOUNT_CH0, 0x0080);
 
 		//rcount maximized for highest accuracy
-		write16FDC(FDC2214_RCOUNT_CH0, 0x0400);
+		write16FDC(FDC2214_RCOUNT_CH0, 0x0800);
 
 		//write16FDC(FDC2214_RCOUNT_CH0, 0xFFFF);
 

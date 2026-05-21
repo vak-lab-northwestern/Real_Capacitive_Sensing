@@ -1,17 +1,16 @@
 import csv
 import os
 import matplotlib.pyplot as plt
-from cmcrameri import cm
 import numpy as np
 
 # === PATHS ===
 csvfolder = "data"
-data = ["11162025_mux_Node1_CH0_CH1_test2.csv"]
+data = ["Heated_1x1_test1.csv"]
 plotfolder = "MUX_plots"
 
 # === CHOOSE CHANNELS TO PLOT ===
 # Set to None to plot all channels, or specify a list like [1, 2] for specific channels
-channels_to_plot = [1, 2]  # Column indexes (1 = first data channel after time)
+channels_to_plot = [1]  # Column indexes (1 = first data channel after time)
 
 # === LOOP THROUGH FILES ===
 for csvfilename in data:
@@ -63,7 +62,7 @@ for csvfilename in data:
     
     # Generate colors for selected channels
     num_channels = len(selected_channels)
-    colors = cm.batlow(np.linspace(0, 1, num_channels))
+    colors = plt.cm.viridis(np.linspace(0, 1, num_channels))
     
     # Plot selected channels
     for idx, ch in enumerate(selected_channels):
@@ -84,11 +83,11 @@ for csvfilename in data:
     plt.tight_layout()
     
     # Save plot (uncomment to enable)
-    # if not os.path.exists(plotfolder):
-    #     os.makedirs(plotfolder)
-    # outfile = os.path.join(plotfolder, f"{os.path.splitext(csvfilename)[0]}.png")
-    # plt.savefig(outfile, dpi=300)
-    # plt.close()
-    # print(f"✅ Saved plot → {outfile}")
+    if not os.path.exists(plotfolder):
+        os.makedirs(plotfolder)
+    outfile = os.path.join(plotfolder, f"{os.path.splitext(csvfilename)[0]}.png")
+    plt.savefig(outfile, dpi=300)
+    plt.close()
+    print(f"✅ Saved plot → {outfile}")
     
     plt.show()

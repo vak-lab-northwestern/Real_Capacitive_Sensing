@@ -1,10 +1,10 @@
 import serial
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt 
 import matplotlib.colors as mcolors
 
 
-# ====== CONFIG ======
+# ====== CONFIG ======,
 PORT = "/dev/tty.usbserial-110"   # <-- change this
 BAUD = 250000
 ROWS = 8

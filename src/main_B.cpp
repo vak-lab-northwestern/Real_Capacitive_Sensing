@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include "FDC2214.h"
+#include "FDC2214s.h"
 
 /*
   Working code for 1 chip configuration
@@ -9,10 +9,10 @@
   ADDR_0 = 0x2A
   ADDR_1 = 0x2B
 */
-FDC2214 capsense0(FDC2214_I2C_ADDR_0); 
+FDC2214 capsense0(FDC2214_I2C_ADDR_1); 
 
 // Variable definition
-#define CHAN_COUNT 4
+#define CHAN_COUNT 1
 
 void setup() {
   
@@ -24,7 +24,7 @@ void setup() {
   
   /* Setup first two channels, autoscan with 2 channels, deglitch at 10MHz, external oscillator */
   // bool capO = capsense0.begin(0x3, 0x4, 0x5, false); 
-  bool capO = capsense0.begin(0xF, 0x6, 0x5, false); 
+  bool capO = capsense0.begin(0x01, 0x04, 0x5, false); 
 
   /* Checking if sensor is being read on the same communication bus */
   if (capO) Serial.println("Sensor OK");  

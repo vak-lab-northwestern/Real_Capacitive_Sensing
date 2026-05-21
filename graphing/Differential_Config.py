@@ -1,3 +1,7 @@
+import matplotlib
+matplotlib.use("QtAgg")
+
+
 import serial
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
@@ -6,8 +10,7 @@ import math
 import csv
 import time
 import threading
-import tkinter as tk
-from tkinter import filedialog
+from PyQt6.QtWidgets import QFileDialog, QApplication
 # from cmcrameri import cmr
 
 
@@ -39,7 +42,7 @@ plt.ion()
 fig, ax = plt.subplots()
 lines = [ax.plot(list(ch[i]), label=f"CH{i+1}")[0] for i in range(channel_num)]
 ax.legend()
-ax.set_ylim(315, 345)
+ax.set_ylim(300, 345)
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Δ Capacitance (pF)")
 ax.set_title(channel_title) 
@@ -52,15 +55,17 @@ csv_writer = None
 log_lock = threading.Lock()
 
 def choose_output_file():
-    root = tk.Tk()
-    root.withdraw()
-    file_path = filedialog.asksaveasfilename(
-        defaultextension=".csv",
-        filetypes=[("CSV files", "*.csv")],
-        title="Select CSV file to log to"
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+
+    fname, _ = QFileDialog.getSaveFileName(
+        None,
+        "Select CSV file to log to",
+        "",
+        "CSV Files (*.csv)"
     )
-    root.destroy()
-    return file_path
+    return fname
 
 def start_logging(event):
     global logging_enabled, csv_file, csv_writer
