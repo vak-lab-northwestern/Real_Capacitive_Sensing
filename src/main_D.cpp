@@ -1,134 +1,65 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <stdio.h>
-#include <math.h>
+#include "FDC2214.h"
 
-#include <FDC2214s.h>
 #include "cap.h"
 
 /*
-  FDC2214 Continuous Time-Division Multiplexing (TDM, Differential)
-  Two 4:1 analog multiplexer connected to CH0 of FDC2214.
-  Output format to Serial (one line per full scan):
-  MUX1_0,MUX1_1,MUX1_2,MUX1_3,MUX1_4,MUX1_5,MUX1_6,MUX1_7\n
-  where:
-    MUX1_0-7 = FDC CH0 readings for MUX1 states 0–7
+  Working code for 2 chip configuration
+  Initiating FDC2214 chip addresses 
+  Only 2 possible configurations 
+  ADDR_0 = 0x2A
+  ADDR_1 = 0x2B
 */
+FDC2214 capsense0(FDC2214_I2C_ADDR_0); 
+// FDC2214 capsense1(FDC2214_I2C_ADDR_1);
 
-// MUX pin mapping 
-// #define MUX2_C 26 // MSB
-// #define MUX2_B 27 //    
-// #define MUX2_A 14 // LSB
-
-// TEST 2x2
-#define MUX2_A1 27
-#define MUX2_A0 14
-
-#define MUX1_A1 25
-#define MUX1_A0 32
-
-
-// #define MUX1_C 25 // MSB
-// #define MUX1_B 33 //  
-// #define MUX1_A 32 // LSB
-
-// Constants
-#define MUX_STATES        2  // 8 states for 3 select lines (8:1 mux)
-#define FDC_CHANNELS       1   // Using 1 FDC channel (CH0)
-#define TOTAL_READINGS     4
-#define SCAN_PRINT 4
-
-FDC2214 fdc1(FDC2214_I2C_ADDR_1);
-
-void setMuxPins(int s1, int s0, int state) {
-  digitalWrite(s1, (state >> 1) & 0x01); 
-  digitalWrite(s0, (state >> 0) & 0x01); 
-  // digitalWrite(s2, (state >> 0) & 0x01);
-}
-
-void initFDC(FDC2214 &fdc, const char *name) {
-  // Enable only CH0 and CH1 for faster conversion
-  // 0x3 = binary 0011 = CH0 and CH1 enabled
-  // 0x4 = autoscan sequence CH0->CH1
-
-  bool ok = fdc.begin(0x01, 0x04, 0x05, true); // chanMask=0x01 (CH0), autoscanSeq=0 (no autoscan), deglitchValue=0 (default), intOsc=true
-
-  // if (ok) Serial.print(name), Serial.println(" OK");
-  // else Serial.print(name), Serial.println(" FAIL");
-}
-
-// void setupMuxPins() {
-//   pinMode(MUX1_C, OUTPUT);
-//   pinMode(MUX1_B, OUTPUT);
-//   pinMode(MUX1_A, OUTPUT);
-//   pinMode(MUX2_C, OUTPUT);
-//   pinMode(MUX2_B, OUTPUT);
-//   pinMode(MUX2_A, OUTPUT);
-// }
-
-void setupMuxPins() {
-  pinMode(MUX1_A1, OUTPUT);
-  pinMode(MUX1_A0, OUTPUT);
-  pinMode(MUX2_A1, OUTPUT);
-  pinMode(MUX2_A0, OUTPUT);
-}
+// Variable definition
+#define CHAN_COUNT 1
 
 void setup() {
+  
+  /* Initializing I2C communication protocal */
   Wire.begin();
   Wire.setClock(400000);
+  
+  /* Configuring baud rate */
   Serial.begin(115200);
+  
+  /* Setup first four channels, autoscan with 4 channels, deglitch at 10MHz, external oscillator */
+  bool capO = capsense0.begin(0x1, 0x4, 0x5, true); 
+  // bool cap1 = capsense1.begin(0xF, 0x6, 0x5, true); 
 
-  setupMuxPins();
-  
-  // Initialize both muxes to state 0
-  // setMuxPins(MUX1_C, MUX1_B, MUX1_A, 0);
-  // setMuxPins(MUX2_C, MUX2_B, MUX2_A, 0);
-  
-  setMuxPins(MUX1_A1, MUX1_A0, 0);
-  setMuxPins(MUX2_A1, MUX2_A0, 0);
+  /* Checking if both sensors are being read on the same communication bus */
+  if (capO) Serial.println("Sensor OK");  
+  else Serial.println("Sensor Fail");  
+  // if (cap1) Serial.println("Sensor OK");  
+  // else Serial.println("Sensor Fail");  
 
-  initFDC(fdc1, "FDC");
-
-  fdc1.enterSleepMode(); 
-  
-  // Serial.println("Starting multiplexed capacitance scan (RAW)...");
-  
-  // Let FDC stabilize with initial mux state
-  delay(100);
 }
 
-
-// for graphing 16
 void loop() {
-  double current_scan[TOTAL_READINGS];
-  // unsigned long t0 = micros();
-  int idx = 0;
-  
-  for (int mux1 = 0; mux1 < MUX_STATES; mux1++) {
-   setMuxPins(MUX1_A1, MUX1_A0, mux1);
+  /* Storing data into list but not necessary since it is not being processed here */
+  // unsigned long capa0[CHAN_COUNT]; 
+  // unsigned long capa1[CHAN_COUNT];
 
-    for (int mux2 = 0; mux2 < MUX_STATES; mux2++) {
-      setMuxPins(MUX2_A1, MUX2_A0, mux2);
-      
-      
-      fdc1.triggerSingleConversion(0);
-      
-      unsigned long raw = fdc1.getReading28(0);
-      current_scan[idx++] = computeCap_pf(raw);
-    }
- }
-  
-  // Serial.println();
-  // Serial.print("# frame_us=");
-  // Serial.println(micros() - t0);
+  // /* Continuous reading of 28 bit data */
+  // for (int i = 0; i < CHAN_COUNT; i++){ 
+  //   capa0[i]= capsense0.getReading28(i);//  
+  //   // capa1[i]= capsense1.getReading28(i);
+  // }
 
-  // Print all 64 values (one full frame)
-  for (int i = 0; i < SCAN_PRINT; i++) {
-    Serial.print(current_scan[i], 2); // 2 decimal places is faster to print than 4
-    if (i < SCAN_PRINT - 1) {
-      Serial.print(",");
-    }
+  /* Printing results for Chip 0 (0x2A) in Python readable format */
+  for (int i = 0; i < CHAN_COUNT; i++) {
+    Serial.print(computeCap_pf(capsense0.getReading28(i)));
+    if (i < CHAN_COUNT - 1) Serial.print(", ");
   }
-  Serial.println();
 
+  /* Printing results for Chip 0 (0x2B) in Python readable format */
+  // for (int i = 0; i < CHAN_COUNT; i++) {
+    // Serial.print(capa1[i]);
+    // if (i < CHAN_COUNT - 1) Serial.print(", ");
+  // }
+  Serial.println();
 }
+

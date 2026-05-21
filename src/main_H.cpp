@@ -22,7 +22,7 @@
 
 #define MUX1_C 5 // MSB
 #define MUX1_B 6 //  
-#define MUX1_A 7 // LSB 
+#define MUX1_A 7 // LSB
 
 // Constants
 #define MUX_STATES        8   // 8 states for 3 select lines (8:1 mux)

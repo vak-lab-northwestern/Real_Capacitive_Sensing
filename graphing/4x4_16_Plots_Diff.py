@@ -9,7 +9,7 @@ import tkinter as tk
 from tkinter import filedialog
 
 #  Settings 
-serialPort = "/dev/tty.usbserial-10"
+serialPort = "/dev/tty.usbserial-110"
 baudrate = 250000
 channel_num = 64
 buffer_len = 10
