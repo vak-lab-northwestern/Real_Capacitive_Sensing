@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#include <FDC2214x.h>
+#include <FDC2214s.h>
 #include "cap.h"
 
 /*
@@ -19,14 +19,13 @@
 // #define MUX2_C 26 // MSB
 // #define MUX2_B 27 //    
 // #define MUX2_A 14 // LSB
-
+ 
 // TEST 2x2
 #define MUX2_A1 27
-#define MUX2_A0 14
+#define MUX2_A0 25
 
-#define MUX1_A1 25
+#define MUX1_A1 14
 #define MUX1_A0 32
-
 
 // #define MUX1_C 25 // MSB
 // #define MUX1_B 33 //  
@@ -76,7 +75,7 @@ void setupMuxPins() {
 void setup() {
   Wire.begin();
   Wire.setClock(400000);
-  Serial.begin(115200);
+  Serial.begin(250000);
 
   setupMuxPins();
   

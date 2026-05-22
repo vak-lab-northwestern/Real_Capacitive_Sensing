@@ -4,6 +4,7 @@ from matplotlib.widgets import Button
 from collections import deque
 import csv
 import time
+import math
 import threading
 import tkinter as tk
 from tkinter import filedialog
@@ -11,8 +12,9 @@ from tkinter import filedialog
 #  Settings 
 serialPort = "/dev/tty.usbserial-110"
 baudrate = 250000
-channel_num = 64
+channel_num = 4
 buffer_len = 10
+visible_channels = 4
 
 #  State Variables 
 logging_enabled = False
@@ -38,18 +40,29 @@ plt.ion()
 # fig, axes = plt.subplots(4, 4, figsize=(12, 8), sharex=True, sharey=True)
 # fig.suptitle("4x4 Capacitance Sensor Grid (pF)")
 
-fig, axes = plt.subplots(8, 8, figsize=(16, 12), sharex=True, sharey=True)
-fig.suptitle("8x8 Capacitance Sensor Grid (pF)")
+visible_channels = min(visible_channels, channel_num)
+ncols = math.ceil(math.sqrt(visible_channels))
+nrows = math.ceil(visible_channels / ncols)
 
-axes_flat = axes.flatten()
+fig, axes = plt.subplots(nrows, ncols, figsize=(14, 12), sharex=True, sharey=True)
+fig.suptitle(f"{visible_channels} Capacitance Sensor Grid (pF)")
+
+if isinstance(axes, plt.Axes):
+    axes_flat = [axes]
+else:
+    axes_flat = axes.flatten()
+
 lines = []
 
-for i in range(channel_num):
+for i in range(visible_channels):
     ax_sub = axes_flat[i]
     line, = ax_sub.plot([], [], label=f"CH{i}", color='tab:blue')
     lines.append(line)
     ax_sub.set_title(f"Node {i}", fontsize=9)
     ax_sub.grid(True, alpha=0.3)
+
+for j in range(visible_channels, len(axes_flat)):
+    axes_flat[j].axis('off')
 
 # Adjust layout to make room for buttons at the bottom
 plt.tight_layout(rect=[0, 0.1, 1, 0.95])

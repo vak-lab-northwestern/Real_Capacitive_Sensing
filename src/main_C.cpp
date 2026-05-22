@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include "FDC2214.h"
+#include "FDC2214x.h"
 
 /*
   Dual FDC2214 Continuous Time-Division Multiplexing (TDM)

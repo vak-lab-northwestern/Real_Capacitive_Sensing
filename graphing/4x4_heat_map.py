@@ -7,8 +7,8 @@ import matplotlib.colors as mcolors
 # ====== CONFIG ======
 PORT = "/dev/tty.usbserial-110"   # <-- change this
 BAUD = 250000
-ROWS = 8
-COLS = 8
+ROWS = 2
+COLS = 2
 BASELINE_FRAMES = 10              # number of frames to average
 AUTO_SCALE = False                # True = dynamic color scale
 FIXED_RANGE = 6              # a   djust based on your signal
