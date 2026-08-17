@@ -1,0 +1,205 @@
+
+/* --COPYRIGHT--,BSD
+ * Copyright (c) 2017, Texas Instruments Incorporated
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * *  Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * *  Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * *  Neither the name of Texas Instruments Incorporated nor the names of
+ *    its contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * --/COPYRIGHT--*/
+//*****************************************************************************
+// Development main.c for MSP430FR2633, MSP430FR2533, MSP430FR2632, and
+// MSP430FR2532.
+//
+// This starter application initializes the CapTIvate touch library
+// for the touch panel specified by CAPT_UserConfig.c/.h via a call to
+// CAPT_appStart(), which initializes and calibrates all sensors in the
+// application, and starts the CapTIvate interval timer.
+//
+// Then, the capacitive touch interface is driven by calling the CapTIvate
+// application handler, CAPT_appHandler().  The application handler manages
+// whether the user interface (UI) is running in full active scan mode, or
+// in a low-power wake-on-proximity mode.
+//
+// The CapTIvate application handler will return true if proximity was
+// detected on any of the sensors in the application, which is used here
+// to control the state of LED2. LED1 is set while the background loop enters
+// the handler, and is cleared when the background loop leaves the handler.
+//
+// \version 1.80.00.30
+// Released on March 26, 2019
+//
+//*****************************************************************************
+
+#include <msp430.h>                      // Generic MSP430 Device Include
+#include "driverlib.h"                   // MSPWare Driver Library
+#include "captivate.h"                   // CapTIvate Touch Software Library
+#include "CAPT_App.h"                    // CapTIvate Application Code
+#include "CAPT_BSP.h"                    // CapTIvate EVM Board Support Package
+
+volatile uint16_t raw;
+uint16_t* pRaw;
+volatile uint16_t rawRefCap;
+
+volatile float percent_change_capacitance;
+volatile float base_electrode_capacitance;
+
+void CAPT_updateSensor_withRefCap(tSensor *pSensor, uint8_t ui8LPM, uint8_t ui8RefCap);
+extern tElement BTN00_E00;
+
+void main(void)
+{
+
+	//
+	// Initialize the MCU
+	// BSP_configureMCU() sets up the device IO and clocking
+	// The global interrupt enable is set to allow peripherals
+	// to wake the MCU.
+	//
+	WDTCTL = WDTPW | WDTHOLD;
+	BSP_configureMCU();
+	__bis_SR_register(GIE);
+
+	//
+	// Start the CapTIvate application, roughly same as CAP_appstart()
+	//////
+    CAPT_initUI(&g_uiApp);
+
+    CAPT_calibrateUI(&g_uiApp);
+
+    /////
+
+	CAPT_updateSensor(&BTN00, g_uiApp.ui8AppLPM);
+	raw = BTN00_E00.pRawCount[0];
+
+	CAPT_updateSensor_withRefCap(&BTN00, g_uiApp.ui8AppLPM,CAPT_REFERENCE_CAP__MUTUAL_0P5PFM_1P0PF);
+	rawRefCap = BTN00_E00.pRawCount[0];
+
+	percent_change_capacitance = 100.0f * (1.0f/rawRefCap - 1.0f/raw) * 100.0f;
+	base_electrode_capacitance = 0.5f / (percent_change_capacitance/100.0f);
+
+	while(1);
+
+} // End main()
+
+void CAPT_updateSensor_withRefCap(tSensor *pSensor, uint8_t ui8LPM, uint8_t ui8RefCap)
+{
+    uint8_t ui8Cycle = 0;
+    uint8_t ui8SavedCntFilter;
+
+    pSensor->bSensorUpdating = true;
+
+    //
+    // If count filter is disabled,
+    // context save the current filter then
+    // set to zero to workaround ROM fxn neglecting
+    // the status of the enable bit
+    //
+    if (pSensor->bCountFilterEnable == false)
+    {
+        ui8SavedCntFilter = pSensor->ui8CntBeta;
+        pSensor->ui8CntBeta = 0;
+    }
+
+    //
+    // Load sensor parameters
+    //
+    MAP_CAPT_applySensorParams(pSensor);
+    MAP_CAPT_applySensorFreq(CAPT_OSC_FREQ_DEFAULT,pSensor);
+
+    //
+    // Load first cycle and start the conversion
+    //
+    //A0272918
+    MAP_CAPT_enableRefCap(pSensor->pCycle[ui8Cycle]->pElements[0], ui8RefCap);
+
+    MAP_CAPT_loadCycle(pSensor, ui8Cycle, CAPT_OSC_FREQ_DEFAULT, true);
+    MAP_CAPT_startConversion(&g_bEndOfConversionFlag);
+
+    for(ui8Cycle=1; ui8Cycle < pSensor->ui8NrOfCycles;ui8Cycle++)
+    {
+        //
+        // Wait for conversion to complete, then unload the previous cycle
+        //
+        MAP_CAPT_blockOnFlag(&g_bEndOfConversionFlag, ui8LPM);
+        MAP_CAPT_unloadCycle(pSensor, ui8Cycle-1, 0, true);
+
+        //A0272918
+        MAP_CAPT_disableRefCap();
+
+        //
+        // Load next cycle and start the conversion
+        //
+        MAP_CAPT_loadCycle(pSensor, ui8Cycle, CAPT_OSC_FREQ_16MHZ, true);
+        //A0272918
+        MAP_CAPT_enableRefCap(pSensor->pCycle[ui8Cycle]->pElements[0], ui8RefCap);
+
+        MAP_CAPT_startConversion(&g_bEndOfConversionFlag);
+
+        //
+        // Process previous cycle results
+        //
+        CAPT_processFSMCycle(pSensor,(tCycle *)pSensor->pCycle[ui8Cycle-1]);
+    }
+
+    //
+    // Wait for conversion to complete, then unload the previous cycle
+    //
+    MAP_CAPT_blockOnFlag(&g_bEndOfConversionFlag, ui8LPM);
+    MAP_CAPT_unloadCycle(pSensor, ui8Cycle-1, 0, true);
+
+    //A0272918
+    MAP_CAPT_disableRefCap();
+
+    //
+    // Cleanup
+    //
+    MAP_CAPT_cleanupAfterConversion();
+
+    //
+    // Process last Cycle
+    //
+    CAPT_processFSMCycle(pSensor,(tCycle *)pSensor->pCycle[ui8Cycle-1]);
+
+    //
+    // Process the sensor
+    //
+    CAPT_processSensor(pSensor);
+    // if (pSensor->pvCallback != NULL)
+    // {
+    //     pSensor->pvCallback(pSensor);
+    // }
+
+    //
+    // Restore saved count filter for ROM fxn workaround
+    //
+    if (pSensor->bCountFilterEnable == false)
+    {
+        pSensor->ui8CntBeta = ui8SavedCntFilter;
+    }
+
+    pSensor->bSensorUpdating = false;
+}
