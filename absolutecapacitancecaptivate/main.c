@@ -1,3 +1,7 @@
+//currently not working!!
+// needs more work
+
+
 /*
 Calculates base electrode capacitance for mutual capacitance grids, should work for any size grid
 for example, 1x1, 2x2, 4x4, 5x5, 5x4, 7x7, etc...
@@ -15,17 +19,23 @@ How to use:
 #include "CAPT_BSP.h"                    // CapTIvate EVM Board Support Package
 
 //16 elements for 4x4 grid
-const int num_elements = 16;
+#define num_elements 16
 
 //hold "counts" -> amount of transfers necessary to fill up internal sample capacitor
 volatile uint16_t raw[num_elements];
 volatile uint16_t rawRefCap[num_elements];
 
-volatile double percent_change_capacitance[num_elements];
-volatile double base_electrode_capacitance[num_elements]; // in picofarads
+volatile float percent_change_capacitance[num_elements];
+volatile float base_electrode_capacitance[num_elements];
 
 void main(void)
 {
+	uint8_t num_cycles;
+    uint8_t num_elem_per_cycle;
+    int elem_index;
+    int i;
+    int j;
+    tElement* pElem;
 	//
 	// Initialize the MCU
 	// BSP_configureMCU() sets up the device IO and clocking
@@ -43,14 +53,14 @@ void main(void)
 	//loop through all cycles in sensor, nexted loop through elements in each cyle.
 	//calculate find baseline electrode capacitance for all elements
 	
-	uint8_t num_cycles = BTN00.ui8NrOfCycles;
-	int elem_index = 0;
-	for (int i = 0; i<num_cycles; i++) {
-		uint8_t num_elem_per_cycle = BTN00.pCycle[i]->ui8NrOfElements;
-		for (int j = 0; j<num_elem_per_cycle; j++) {
+	num_cycles = BTN00.ui8NrOfCycles;
+	elem_index = 0;
+	for (i = 0; i<num_cycles; i++) {
+		num_elem_per_cycle = BTN00.pCycle[i]->ui8NrOfElements;
+		for (j = 0; j<num_elem_per_cycle; j++) {
 			
 			//get pointer to desired element
-			tElement* pElem = BTN00.pCycle[i]->pElements[j];
+			pElem = BTN00.pCycle[i]->pElements[j];
 			
 			//update sensor readings, store in raw array
 			CAPT_updateSensor(&BTN00, g_uiApp.ui8AppLPM);
@@ -67,6 +77,7 @@ void main(void)
 			percent_change_capacitance[elem_index] = 100.0f * (1.0f/rawRefCap[elem_index] - 1.0f/raw[elem_index]) * 100.0f;
 			base_electrode_capacitance[elem_index] = 0.5f / (percent_change_capacitance[elem_index]/100.0f);
 			
+			MAP_CAPT_disableRefCap();
 			//move on to next element
 			elem_index++;
 		}
@@ -74,3 +85,4 @@ void main(void)
 	//when done, freeze program
 	while(1);
 } // End main()
+
