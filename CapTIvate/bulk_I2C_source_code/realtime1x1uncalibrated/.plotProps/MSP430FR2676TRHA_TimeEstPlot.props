@@ -1,0 +1,19 @@
+#/Users/andresturullols/CapTIvateDesignCenter_1_83_00_08/CapTIvateDesignCenterWorkspace/realtime1x1uncalibrated/.plotProps/MSP430FR2676TRHA_TimeEstPlot.props Plotter Data
+#Wed Aug 12 12:16:09 CDT 2026
+xmin=0.000000
+ymax=2.000000
+titleFont=helvetica-BOLD-24
+Signal.alias.--Sensors\ Total--=0.270ms
+xmax=42.900000
+--Sensors\ Total--=on
+BTN00=on
+xlabel=Time
+labelFont=helvetica-BOLD-12
+Signal.alias.BTN00=0.270ms
+graphtype=PtsCon
+persistence=2000
+ymin=0.000000
+ylabel=Channel Data
+legendFont=helvetica-BOLD-14
+Signal.alias.--Scan\ Period--=33.000ms
+--Scan\ Period--=on
