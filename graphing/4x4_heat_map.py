@@ -5,7 +5,7 @@ import matplotlib.colors as mcolors
 
 
 # ====== CONFIG ======
-PORT = "/dev/tty.usbserial-110"   # <-- change this
+PORT = "/dev/tty.usbserial-10"   # <-- change this
 BAUD = 250000
 ROWS = 2
 COLS = 2

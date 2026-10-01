@@ -37,22 +37,26 @@
 #include <Protocentral_FDC2214.h>
 
 // >>> EDIT THIS to match your tank inductor <<<
-const float TANK_INDUCTANCE_UH = 18.0f;
-const int mux1_A = 4;
+const float TANK_INDUCTANCE_UH = 18.0;
+const int mux1_A = 17;
 const int mux1_B = 5;
-const int mux2_A = 18;
-const int mux2_B = 19;
+const int mux1_C = 18;
+
+const int mux2_A = 4;
+const int mux2_B = 16;
+const int mux2_C = 19;
 
 FDC2214 fdc;
 
 void read_cap(){
     while(!fdc.isDataReady(FDC2214_CH0)){
+     // Serial.println("waiting");
         
     }
     float c_pf = fdc.readCapacitancePf(FDC2214_CH0, TANK_INDUCTANCE_UH);
     Serial.print(c_pf, 4);
     Serial.print('\t');
-    //delay(20);
+   // delay(20);
 }
 
 
@@ -69,8 +73,10 @@ void setup() {
 
     pinMode(mux1_A, OUTPUT);
     pinMode(mux1_B, OUTPUT);
+    pinMode(mux1_C, OUTPUT);
     pinMode(mux2_A, OUTPUT);
     pinMode(mux2_B, OUTPUT);
+    pinMode(mux2_C, OUTPUT);
 
     fdc.configureDefaults();
     fdc.setActiveChannel(FDC2214_CH0);
@@ -86,40 +92,89 @@ void setup() {
 void loop() {
 
 
-    for(int r = 0; r < 4; r++){
+    for(int r = 0; r < 8; r++){
         if(r == 0){
             digitalWrite(mux1_A, LOW);
             digitalWrite(mux1_B, LOW);
+            digitalWrite(mux1_C, LOW);
         }
         else if(r == 1){
             digitalWrite(mux1_A, HIGH);
             digitalWrite(mux1_B, LOW);
+            digitalWrite(mux1_C, LOW);
         }
         else if(r == 2){
             digitalWrite(mux1_A, LOW);
             digitalWrite(mux1_B, HIGH);
+            digitalWrite(mux1_C, LOW);
         }
-        else{ //r == 3
+        else if(r == 3){
             digitalWrite(mux1_A, HIGH);
             digitalWrite(mux1_B, HIGH);
+            digitalWrite(mux1_C, LOW);
         }
-        for(int c =0; c < 4; c++){
-            if(c == 0){
-                digitalWrite(mux2_A, LOW);
-                digitalWrite(mux2_B, LOW);
-            }
-            else if(c == 1){
-                digitalWrite(mux2_A, HIGH);
-                digitalWrite(mux2_B, LOW);
-            }
-            else if(c == 2){
-                digitalWrite(mux2_A, LOW);
-                digitalWrite(mux2_B, HIGH);
-            }
-            else{ //r == 3
-                digitalWrite(mux2_A, HIGH);
-                digitalWrite(mux2_B, HIGH);
-            }
+        else if(r == 4){
+            digitalWrite(mux1_A, LOW);
+            digitalWrite(mux1_B, LOW);
+            digitalWrite(mux1_C, HIGH);
+        }
+        else if(r == 5){
+            digitalWrite(mux1_A, HIGH);
+            digitalWrite(mux1_B, LOW);
+            digitalWrite(mux1_C, HIGH);
+        }
+        else if(r == 6){
+            digitalWrite(mux1_A, LOW);
+            digitalWrite(mux1_B, HIGH);
+            digitalWrite(mux1_C, HIGH);
+        }
+        else{ //r == 7
+            digitalWrite(mux1_A, HIGH);
+            digitalWrite(mux1_B, HIGH);
+            digitalWrite(mux1_C, HIGH);
+        }
+
+        for(int c =0; c < 8; c++){
+        if(c == 0){
+            digitalWrite(mux2_A, LOW);
+            digitalWrite(mux2_B, LOW);
+            digitalWrite(mux2_C, LOW);
+        }
+        else if(c == 1){
+            digitalWrite(mux2_A, HIGH);
+            digitalWrite(mux2_B, LOW);
+            digitalWrite(mux2_C, LOW);
+        }
+        else if(c == 2){
+            digitalWrite(mux2_A, LOW);
+            digitalWrite(mux2_B, HIGH);
+            digitalWrite(mux2_C, LOW);
+        }
+        else if(c == 3){
+            digitalWrite(mux2_A, HIGH);
+            digitalWrite(mux2_B, HIGH);
+            digitalWrite(mux2_C, LOW);
+        }
+        else if(c == 4){
+            digitalWrite(mux2_A, LOW);
+            digitalWrite(mux2_B, LOW);
+            digitalWrite(mux2_C, HIGH);
+        }
+        else if(c == 5){
+            digitalWrite(mux2_A, HIGH);
+            digitalWrite(mux2_B, LOW);
+            digitalWrite(mux2_C, HIGH);
+        }
+        else if(c == 6){
+            digitalWrite(mux2_A, LOW);
+            digitalWrite(mux2_B, HIGH);
+            digitalWrite(mux2_C, HIGH);
+        }
+        else{ //c == 7
+            digitalWrite(mux2_A, HIGH);
+            digitalWrite(mux2_B, HIGH);
+            digitalWrite(mux2_C, HIGH);
+        }
             Serial.print(r);
             Serial.print(",");
             Serial.print(c);
