@@ -1,6 +1,7 @@
+This repository contains all files relevant to the VAK TEMS project.
 
-Main.cpp = Code deployed to ardiuno to collect data (Contains raw data no conversion)
+To clean up files that were no longer relevant, any files before the start of 2026-2027 school year are located in the folder "Pre 2026 Files"
 
-Easy_Graphing.py = New updated graphing that directly takes data and applies conversion allowing for 4 channel sensing (Remember to close serial plotter before accessing through python)
+Active programs are split up into Arduino, Platformio, and CapTIvate
 
-Capa_Data.py = Code used to filter the data collected (Will combine with easy graphing soon)
+Arduino is less organized, and is a place to store temporary programs for quick testing but not final implementation. CapTIvate is a board by texas instruments that performs capacitive sensing. Platformio is similar to Arduino, but more clearly organizes files into src, include, and lib. More details about the how to use Platformio is in its own README
