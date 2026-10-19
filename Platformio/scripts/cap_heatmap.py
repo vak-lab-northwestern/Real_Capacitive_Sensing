@@ -98,9 +98,9 @@ def main():
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--port")
     src.add_argument("--file")
-    p.add_argument("--baud", type=int, default=921600)
-    p.add_argument("--format", choices=["binary", "text"], default="binary",
-                   help="Serial format: binary packets (current firmware) or text lines")
+    p.add_argument("--baud", type=int, default=115200)
+    p.add_argument("--format", choices=["binary", "text"], default="text",
+               help="Serial format: text lines (default) or binary packets")
     p.add_argument("--unit", type=float, default=None,
                    help="Integer values are counts of 1/unit pF (default: 100 binary, 1000 text)")
     p.add_argument("--max-fps", type=float, default=30.0, help="Cap on screen redraws per second")
