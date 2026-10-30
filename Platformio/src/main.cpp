@@ -38,9 +38,9 @@ FDC2214 fdc1(FDC2214_I2C_ADDR_0);   // address when pulled low (0x2A)
 
 //writes 3 bit value to mux
 static inline void writeMux(int s2, int s1, int s0, uint8_t code) {
-    digitalWrite(s2,(code & 0b100)); //MSB
-    digitalWrite(s1,(code & 0b010));
-    digitalWrite(s0,(code & 0b001));
+    digitalWrite(s2, (code >> 2) & 1); // MSB
+    digitalWrite(s1, (code >> 1) & 1);
+    digitalWrite(s0, code & 1);       // LSB
 }
 
 void setup() {
