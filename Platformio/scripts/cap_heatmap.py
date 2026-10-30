@@ -89,7 +89,7 @@ def main():
     p.add_argument("--calib-seconds", type=float, default=4.0,
                    help="seconds spent learning each cell's resting value")
     # --- sensitivity knobs ---
-    p.add_argument("--full-scale", type=float, default=4.0,
+    p.add_argument("--full-scale", type=float, default=5.0,
                    help="change (pF) that shows as full dark red. LOWER = MORE SENSITIVE")
     p.add_argument("--gamma", type=float, default=0.5,
                    help="color curve; below 1 boosts small changes (0.5 = sqrt), 1 = linear")
