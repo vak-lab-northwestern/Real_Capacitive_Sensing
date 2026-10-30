@@ -11,14 +11,14 @@
 
 //A = LSB, C = MSB
 //mux 1 control pins
-#define MUX_COL_A 5
-#define MUX_COL_B 18
-#define MUX_COL_C 19
+#define MUX_ROW_A 19
+#define MUX_ROW_B 18
+#define MUX_ROW_C 5
 
 //mux 2 control pins
-#define MUX_ROW_A 4
-#define MUX_ROW_B 16 // RX2
-#define MUX_ROW_C 17 // TX2
+#define MUX_COL_A 17 // TX2
+#define MUX_COL_B 16 // RX2
+#define MUX_COL_C 4 
 
 
 //control number of rows/cols in grid
@@ -31,8 +31,8 @@ uint8_t r0,r1,r2 = 0;
         
 
 //use this to switch mapping of mux pins if wires are flipped or to orient graph in cap_heatmap.py
-uint8_t ROW_ORDER[ROWS] = {0,4,2,6,1,5,7,3};
-uint8_t COL_ORDER[COLS] = {0,4,2,6,1,5,3,7};
+uint8_t ROW_ORDER[ROWS] = {0,1,2,3,4,5,6,7};
+uint8_t COL_ORDER[COLS] = {0,1,2,3,4,5,7,6};
 
 FDC2214 fdc1(FDC2214_I2C_ADDR_0);   // address when pulled low (0x2A)
 
