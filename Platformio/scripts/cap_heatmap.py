@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+# activate venv once, then run second line whenever 
+# source venv/bin/activate
+# python cap_heatmap.py 
 """
 Capacitive-textile heatmap (text serial input only, always 115200 baud).
 
@@ -34,21 +36,30 @@ COLORS
     the bigger the rise, the hotter the color (cream -> yellow -> orange -> red).
     Every cell always prints its raw capacitance in pF, rounded to a whole number.
 
+RECORDING
+    Click "Start rec" to begin capturing every incoming reading.
+    Click "Stop + save" to write them to  ./recordings/<YYYY-MM-DD_HH-MM-SS>.csv
+    (the recordings folder sits next to this script). CSV columns: cap,row,col
+    cap is in pF.
+
     python cap_heatmap.py --port /dev/cu.usbserial-0001
     python cap_heatmap.py --port /dev/cu.usbserial-0001 --rows 8 --cols 8 --full-scale 2
 
 Press  r  in the plot window to recalibrate (not while typing in a box).
 """
 import argparse
+import csv
+import os
 import re
 import time
 import warnings
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
 import serial
 from matplotlib.colors import LinearSegmentedColormap, PowerNorm
-from matplotlib.widgets import TextBox
+from matplotlib.widgets import Button, TextBox
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
@@ -157,6 +168,47 @@ def main():
     for box in (rows_box, cols_box):
         box.label.set_color(FG)
 
+    # ------------------------------------------------------------------------
+    # Recording: Start / Stop buttons, CSV saved to ./recordings/<date-time>.csv
+    # ------------------------------------------------------------------------
+    rec = {"on": False, "data": [], "t_start": None}
+    try:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+    except NameError:
+        script_dir = os.getcwd()
+    REC_DIR = os.path.join(script_dir, "recordings")
+
+    start_btn = Button(fig.add_axes([0.70, 0.885, 0.12, 0.04]), "Start rec",
+                       color="#CFE8CF", hovercolor="#9FD39F")
+    stop_btn = Button(fig.add_axes([0.84, 0.885, 0.12, 0.04]), "Stop + save",
+                      color="#F4C7C3", hovercolor="#E8928B")
+
+    def save_recording():
+        """Write everything captured so far to recordings/<YYYY-MM-DD_HH-MM-SS>.csv"""
+        os.makedirs(REC_DIR, exist_ok=True)
+        path = os.path.join(REC_DIR, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
+        with open(path, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["cap", "row", "col"])
+            w.writerows(rec["data"])
+        print(f"Saved {len(rec['data'])} points to {path}")
+        return path
+
+    def start_rec(event=None):
+        if rec["on"]:
+            return
+        rec["on"], rec["data"], rec["t_start"] = True, [], time.perf_counter()
+        print("Recording started.")
+
+    def stop_rec(event=None):
+        if not rec["on"]:
+            return
+        rec["on"] = False
+        save_recording()
+
+    start_btn.on_clicked(start_rec)
+    stop_btn.on_clicked(stop_rec)
+
     def layout(event=None):
         """Keep the grid centered at any window size; colorbar sits to its right."""
         W, H = fig.get_size_inches()
@@ -228,7 +280,10 @@ def main():
         parsed = parse_line(line)
         if parsed is None:
             return False
-        ingest(*parsed)
+        r, c, v = parsed
+        if rec["on"]:
+            rec["data"].append((f"{v:.3f}", r, c))   # cap (pF), row, col
+        ingest(r, c, v)
         return True
 
     def view():
@@ -257,6 +312,8 @@ def main():
                 v = raw[r, c]
                 t.set_text("" if np.isnan(v) else str(int(round(v))))   # whole pF
                 t.set_color("white" if float(norm(show[r, c])) > 0.65 else "black")
+        if rec["on"]:
+            status_msg += f"   |   \u25cf REC {len(rec['data'])} pts, {time.perf_counter() - rec['t_start']:.0f}s"
         status.set_text(status_msg)
         metrics.set_text(f"display {fps:.0f} fps" if fps else "")
 
@@ -368,6 +425,8 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        if rec["on"] and rec["data"]:                # don't lose an in-progress recording
+            save_recording()
         ser.close()
 
 
