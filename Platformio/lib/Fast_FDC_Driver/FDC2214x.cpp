@@ -107,7 +107,7 @@ void FDC2214::loadSettings(uint8_t chanMask, uint8_t autoscanSeq, uint8_t deglit
 		//  | | |         Reference divider. Must be > 1. fref = fclk / this register`
 		//  | | |         |
 		// 00FF00RRRRRRRRRR -> 0010000000000001 -> 0x2001
-		write16FDC(FDC2214_CLOCK_DIVIDERS_CH0, 0x2001);
+		write16FDC(FDC2214_CLOCK_DIVIDERS_CH0, 0x1001); 
 		//set drive register
 		write16FDC(FDC2214_DRIVE_CH0, 0xF800);
 	}

@@ -16,7 +16,7 @@ HOW ROWS / COLUMNS ARE MAPPED ON SCREEN
          ...  |  ...
         row 1 | (1,0) (1,1) ... (1,7)
         row 0 | (0,0) (0,1) ... (0,7)   <- bottom row
-              +------------------------
+              +---------------------f---
                 col0  col1  ...  col7
                 (left)         (right)
 
@@ -32,10 +32,10 @@ COLORS
     First --calib-seconds: learns each cell's resting capacitance (don't touch!).
     After that a cell stays CREAM until its capacitance rises above its own baseline;
     the bigger the rise, the hotter the color (cream -> yellow -> orange -> red).
-    Every cell always prints its raw capacitance in pF, rounded to a whole number.
+    Every cell always prints its raw capacitance in pF, to 2 decimal places.
 
     python cap_heatmap.py --port /dev/cu.usbserial-0001
-    python cap_heatmap.py --port /dev/cu.usbserial-0001 --rows 8 --cols 8 --full-scale 2
+    python cap_heatmap.py --port /dev/cu.usbserial-0001 --rows 8 --cols 8 --full-scale 0.5
 
 Press  r  in the plot window to recalibrate (not while typing in a box).
 """
@@ -89,13 +89,13 @@ def main():
     p.add_argument("--calib-seconds", type=float, default=4.0,
                    help="seconds spent learning each cell's resting value")
     # --- sensitivity knobs ---
-    p.add_argument("--full-scale", type=float, default=4.0,
+    p.add_argument("--full-scale", type=float, default=1.0,
                    help="change (pF) that shows as full dark red. LOWER = MORE SENSITIVE")
     p.add_argument("--gamma", type=float, default=0.5,
                    help="color curve; below 1 boosts small changes (0.5 = sqrt), 1 = linear")
     p.add_argument("--sigma", type=float, default=2.5,
                    help="ignore changes under this many noise std-devs per cell. Lower = more sensitive")
-    p.add_argument("--deadband", type=float, default=0.1,
+    p.add_argument("--deadband", type=float, default=0.025,
                    help="also ignore changes under this many pF (keeps rest state cream)")
     p.add_argument("--avg", type=int, default=3,
                    help="smooth each cell over ~N readings to cut jitter (1 = off)")
@@ -255,7 +255,7 @@ def main():
         for r, row in enumerate(texts):
             for c, t in enumerate(row):
                 v = raw[r, c]
-                t.set_text("" if np.isnan(v) else str(int(round(v))))   # whole pF
+                t.set_text("" if np.isnan(v) else f"{v:.2f}")           # pF, 2 decimals
                 t.set_color("white" if float(norm(show[r, c])) > 0.65 else "black")
         status.set_text(status_msg)
         metrics.set_text(f"display {fps:.0f} fps" if fps else "")

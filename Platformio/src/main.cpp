@@ -16,18 +16,22 @@
 #define MUX_COL_S2 19
 #define MUX_COL_S1 18
 #define MUX_COL_S0 5
-#define MUX_ROW_S2 17
+#define MUX_ROW_S2 17 //CHANGED FROM ORIGINAL
 #define MUX_ROW_S1 16
 #define MUX_ROW_S0 4
 
-constexpr int ROWS = 8;   
-constexpr int COLS = 8;
+constexpr int ROWS = 1;   
+constexpr int COLS = 1;
 uint8_t r,c = 0;
 
 //use this to switch mapping of mux pins if wires are flipped
-uint8_t ROW_ORDER[ROWS] = {7,6,5,4,3,2,1,0};
-uint8_t COL_ORDER[COLS] = {0,1,2,3,4,5,7,6};
+uint8_t ROW_ORDER[ROWS];
+uint8_t COL_ORDER[COLS];
 
+void initOrders() {
+  for (uint8_t i = 0; i < ROWS; i++) ROW_ORDER[i] = ROWS - 1 - i;  
+  for (uint8_t i = 0; i < COLS; i++) COL_ORDER[i] = i;            
+}
 FDC2214 fdc1(FDC2214_I2C_ADDR_0);   // address when pulled low (0x2A)
 
 static inline void writeMux(int s2, int s1, int s0, uint8_t code) {
@@ -41,7 +45,7 @@ void setup() {
     Wire.setClock(400000);   // slow bus while the FDC starts up; raised to 400 kHz below
     
     Serial.begin(115200);
-
+    initOrders();
     bool ok = fdc1.begin(0x01, 0x04, 0x05, true);
     Serial.println("testing fdc");
     if (ok){
@@ -98,9 +102,9 @@ void setup() {
 //     Serial.printf("#frame_us=%lu\n", (unsigned long)(micros() - t0));
 // // }
 void loop() {
-    for (int col = 0; col < 8; col++) {            // col 0 = even, col 1 = odd
+    for (int col = 0; col < COLS; col++) {            // col 0 = even, col 1 = odd
         writeMux(MUX_COL_S2, MUX_COL_S1, MUX_COL_S0, COL_ORDER[col]);
-        for (int r = 0; r < 8; r++) {
+        for (int r = 0; r < ROWS; r++) {
             writeMux(MUX_ROW_S2, MUX_ROW_S1, MUX_ROW_S0, ROW_ORDER[r]);
             // Serial.printf("reading row mux pin: %d \n", ROW_ORDER[r]);
             // Serial.printf("reading col mux pin: %d \n", COL_ORDER[col]);
@@ -112,7 +116,7 @@ void loop() {
            
             long milli_pf = lround(pf * 1000.0);
            Serial.printf("%d,%d,%ld\n", r, col, milli_pf);   // goes out while the next cell converts   
-          
+          //fdc1.enterSleepMode(); //experimental sleepmode
         }
     }
 }
