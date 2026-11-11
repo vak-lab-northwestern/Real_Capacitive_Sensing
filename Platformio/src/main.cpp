@@ -11,19 +11,19 @@
 
 //A = LSB, C = MSB
 //mux 1 control pins
-#define MUX_ROW_A 19
+#define MUX_ROW_A 5
 #define MUX_ROW_B 18
-#define MUX_ROW_C 5
+#define MUX_ROW_C 19
 
 //mux 2 control pins
-#define MUX_COL_A 17 // TX2
+#define MUX_COL_A 4 // TX2
 #define MUX_COL_B 16 // RX2
-#define MUX_COL_C 4 
+#define MUX_COL_C 17 
 
 
 //control number of rows/cols in grid
-constexpr int ROWS = 8;   
-constexpr int COLS = 8;
+constexpr int ROWS = 6;   
+constexpr int COLS = 6;
 uint8_t row,col = 0;
 
 uint8_t c0,c1,c2 = 0;
@@ -31,8 +31,8 @@ uint8_t r0,r1,r2 = 0;
         
 
 //use this to switch mapping of mux pins if wires are flipped or to orient graph in cap_heatmap.py
-uint8_t ROW_ORDER[ROWS] = {0,1,2,3,4,5,6,7};
-uint8_t COL_ORDER[COLS] = {0,1,2,3,4,5,7,6};
+uint8_t ROW_ORDER[ROWS] = {0,1,2,3,4,5};
+uint8_t COL_ORDER[COLS] = {0,1,2,3,4,5};
 
 FDC2214 fdc1(FDC2214_I2C_ADDR_0);   // address when pulled low (0x2A)
 
@@ -72,9 +72,9 @@ void setup() {
 ///////////// Main cap sensing loop //////////////
 //////////////////////////////////////////////////
 void loop() {
-    for (int col = 0; col < 8; col++) {            // col 0 = even, col 1 = odd
+    for (int col = 0; col < COLS; col++) {            // col 0 = even, col 1 = odd
         writeMux(MUX_COL_C, MUX_COL_B, MUX_COL_A, COL_ORDER[col]);
-        for (int row = 0; row < 8; row++) {
+        for (int row = 0; row < ROWS; row++) {
             writeMux(MUX_ROW_C, MUX_ROW_B, MUX_ROW_A, ROW_ORDER[row]);
             delay(1);
          

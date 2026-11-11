@@ -93,7 +93,7 @@ def parse_line(line):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--port", required=True, help="serial port, e.g. /dev/cu.usbserial-0001")
+    p.add_argument("--port", default="/dev/cu.usbserial-0001", help="serial port")
     p.add_argument("--rows", type=int, default=8, help="starting number of rows (editable in window)")
     p.add_argument("--cols", type=int, default=8, help="starting number of columns (editable in window)")
     p.add_argument("--max-fps", type=float, default=30.0, help="cap on screen redraws per second")
