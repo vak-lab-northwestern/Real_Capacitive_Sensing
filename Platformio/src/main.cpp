@@ -20,6 +20,8 @@
 #define MUX_COL_B 16 // RX2
 #define MUX_COL_C 17 
 
+//I2C Pins are : 21 for SDA and 22 for SCL
+
 
 //control number of rows/cols in grid
 constexpr int ROWS = 6;   
