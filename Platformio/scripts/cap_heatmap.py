@@ -1,12 +1,12 @@
-# activate venv once, then run second line whenever 
-# source venv/bin/activate
-# python cap_heatmap.py 
+#!/usr/bin/env python3
 """
 Capacitive-textile heatmap (text serial input only, always 115200 baud).
 
 SERIAL INPUT (one cell per line, newline terminated), e.g.  3,6,511238
     row,col,value
     value = INTEGER in milli-pF  ->  511238 means 511.238 pF
+    At the end of every full scan the firmware sends a frame-time line:
+        F,<microseconds>        e.g.  F,412345
     Lines that don't match (debug prints, blank lines, '#' comments) are ignored.
 
 HOW ROWS / COLUMNS ARE MAPPED ON SCREEN
@@ -39,16 +39,24 @@ COLORS
 RECORDING
     Click "Start rec" to begin capturing every incoming reading.
     Click "Stop + save" to write them to  ./recordings/<YYYY-MM-DD_HH-MM-SS>.csv
-    (the recordings folder sits next to this script). CSV columns: cap,row,col
-    cap is in pF.
+    (the recordings folder sits next to this script).
+    CSV columns: cap,row,col,time_s
+        cap     = capacitance in pF
+        time_s  = seconds since the first complete frame after Start. Each cell in a
+                  frame is stamped using frame_time / (cells in that frame).
 
-    python cap_heatmap.py --port /dev/cu.usbserial-0001
+PORT
+    If --port is omitted the script uses the first /dev/cu.usbserial*, usbmodem* or
+    wchusbserial* device it finds.
+
+    python cap_heatmap.py
     python cap_heatmap.py --port /dev/cu.usbserial-0001 --rows 8 --cols 8 --full-scale 2
 
 Press  r  in the plot window to recalibrate (not while typing in a box).
 """
 import argparse
 import csv
+import glob
 import os
 import re
 import time
@@ -72,6 +80,8 @@ MAX_DIM = 64             # largest rows/cols you can type into the boxes
 
 # "row,col,value"  e.g. "3,6,511238"  -> groups: row, col, value
 LINE = re.compile(r"^\s*(\d+)\s*,\s*(\d+)\s*,\s*(-?\d+)\s*$")
+# "F,<frame time in microseconds>"  e.g. "F,412345"
+FRAME = re.compile(r"^\s*F\s*,\s*(\d+)\s*$")
 
 PURPLE = "#4E2A84"       # window background
 CREAM = "#FFF3D6"        # resting color of every cell
@@ -79,6 +89,13 @@ FG, FG_DIM = "white", "#D8CCEB"
 TITLE = "Two Layer Knitted Textile: Capacitive Sensing"
 CMAP = LinearSegmentedColormap.from_list(
     "cream_hot", [CREAM, "#FFE08A", "#FFC94D", "#FF8C1A", "#E8281E", "#7A0000"])
+
+
+def find_port():
+    """First USB serial device found on macOS, or None."""
+    ports = (sorted(glob.glob("/dev/cu.usbserial*")) + sorted(glob.glob("/dev/cu.usbmodem*"))
+             + sorted(glob.glob("/dev/cu.wchusbserial*")))
+    return ports[0] if ports else None
 
 
 def parse_line(line):
@@ -93,7 +110,8 @@ def parse_line(line):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--port", default="/dev/cu.usbserial-0001", help="serial port")
+    p.add_argument("--port", default=find_port(),
+                   help="serial port (auto-detected if omitted), e.g. /dev/cu.usbserial-0001")
     p.add_argument("--rows", type=int, default=8, help="starting number of rows (editable in window)")
     p.add_argument("--cols", type=int, default=8, help="starting number of columns (editable in window)")
     p.add_argument("--max-fps", type=float, default=30.0, help="cap on screen redraws per second")
@@ -117,6 +135,10 @@ def main():
                    help="fixed size for the pF numbers (default: scales with the window)")
     p.add_argument("--no-labels", action="store_true", help="hide the raw pF value in each cell")
     args = p.parse_args()
+
+    if not args.port:
+        p.error("no serial port found. Plug in the board or pass --port /dev/cu.xxxx "
+                "(list candidates with: ls /dev/cu.*)")
 
     # Current grid size. Changed live by the Rows / Cols text boxes.
     grid = {"rows": int(np.clip(args.rows, 1, MAX_DIM)),
@@ -171,7 +193,8 @@ def main():
     # ------------------------------------------------------------------------
     # Recording: Start / Stop buttons, CSV saved to ./recordings/<date-time>.csv
     # ------------------------------------------------------------------------
-    rec = {"on": False, "data": [], "t_start": None}
+    rec = {"on": False, "data": [], "t_start": None,
+           "pending": [], "t": 0.0, "skip": False}
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
     except NameError:
@@ -189,15 +212,31 @@ def main():
         path = os.path.join(REC_DIR, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
         with open(path, "w", newline="") as f:
             w = csv.writer(f)
-            w.writerow(["cap", "row", "col"])
+            w.writerow(["cap", "row", "col", "time_s"])
             w.writerows(rec["data"])
         print(f"Saved {len(rec['data'])} points to {path}")
         return path
 
+    def flush_frame(frame_us):
+        """A frame just finished: give each of its cells a timestamp.
+        Each cell gets frame_time / (cells in frame), so cell k of the frame is
+        stamped t + k * dt. Time starts at 0 at the first full frame after Start."""
+        pend, rec["pending"] = rec["pending"], []
+        if rec["skip"]:                      # first frame after Start is partial: drop it
+            rec["skip"] = False
+            return
+        frame_s = frame_us / 1e6
+        if pend:
+            dt = frame_s / len(pend)
+            for k, (v, r, c) in enumerate(pend, 1):
+                rec["data"].append((f"{v:.3f}", r, c, f"{rec['t'] + k * dt:.6f}"))
+        rec["t"] += frame_s
+
     def start_rec(event=None):
         if rec["on"]:
             return
-        rec["on"], rec["data"], rec["t_start"] = True, [], time.perf_counter()
+        rec.update(on=True, data=[], t_start=time.perf_counter(),
+                   pending=[], t=0.0, skip=True)
         print("Recording started.")
 
     def stop_rec(event=None):
@@ -277,12 +316,17 @@ def main():
 
     def handle(line):
         """Feed one serial line in. Returns True if it was a valid data line."""
+        m = FRAME.match(line)
+        if m:                                        # end-of-frame marker with frame time (us)
+            if rec["on"]:
+                flush_frame(int(m[1]))
+            return True
         parsed = parse_line(line)
         if parsed is None:
             return False
         r, c, v = parsed
         if rec["on"]:
-            rec["data"].append((f"{v:.3f}", r, c))   # cap (pF), row, col
+            rec["pending"].append((v, r, c))         # held until the frame time arrives
         ingest(r, c, v)
         return True
 
@@ -313,7 +357,8 @@ def main():
                 t.set_text("" if np.isnan(v) else str(int(round(v))))   # whole pF
                 t.set_color("white" if float(norm(show[r, c])) > 0.65 else "black")
         if rec["on"]:
-            status_msg += f"   |   \u25cf REC {len(rec['data'])} pts, {time.perf_counter() - rec['t_start']:.0f}s"
+            status_msg += (f"   |   \u25cf REC {len(rec['data'])} pts, "
+                           f"{time.perf_counter() - rec['t_start']:.0f}s")
         status.set_text(status_msg)
         metrics.set_text(f"display {fps:.0f} fps" if fps else "")
 

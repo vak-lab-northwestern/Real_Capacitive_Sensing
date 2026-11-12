@@ -30,8 +30,11 @@ uint8_t row,col = 0;
 
 uint8_t c0,c1,c2 = 0;
 uint8_t r0,r1,r2 = 0;
-        
 
+unsigned long lastTime = 0;
+unsigned long currTime = 0;
+unsigned long frameTime = 0;
+        
 //use this to switch mapping of mux pins if wires are flipped or to orient graph in cap_heatmap.py
 uint8_t ROW_ORDER[ROWS] = {0,1,2,3,4,5};
 uint8_t COL_ORDER[COLS] = {0,1,2,3,4,5};
@@ -67,6 +70,7 @@ void setup() {
     pinMode(MUX_ROW_C, OUTPUT); pinMode(MUX_ROW_B, OUTPUT); pinMode(MUX_ROW_A, OUTPUT);
     writeMux(MUX_COL_C, MUX_COL_B, MUX_COL_A, col);
     writeMux(MUX_ROW_C, MUX_ROW_B, MUX_ROW_A, row);
+    lastTime = micros();
 }
 
 
@@ -107,6 +111,11 @@ void loop() {
             Serial.printf("%d,%d,%ld\n", row, col, milli_pf);   // goes out while the next cell converts
         }
     }
+    //calculate time between full frame updates
+    currTime = micros();
+    frameTime = currTime - lastTime;
+    lastTime = currTime;
+    Serial.printf("F,%lu\n", frameTime);
 }
 
 
