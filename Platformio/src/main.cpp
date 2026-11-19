@@ -10,6 +10,7 @@
 #include "cap.h"            // provides computeCap_pf(raw)
 
 //A = LSB, C = MSB
+//Switch A and C for boxed circuit
 //mux 1 control pins
 #define MUX_ROW_A 5
 #define MUX_ROW_B 18
@@ -24,8 +25,8 @@
 
 
 //control number of rows/cols in grid
-constexpr int ROWS = 6;   
-constexpr int COLS = 6;
+constexpr int ROWS = 8;   
+constexpr int COLS = 8;
 uint8_t row,col = 0;
 
 uint8_t c0,c1,c2 = 0;
@@ -36,8 +37,17 @@ unsigned long currTime = 0;
 unsigned long frameTime = 0;
         
 //use this to switch mapping of mux pins if wires are flipped or to orient graph in cap_heatmap.py
-uint8_t ROW_ORDER[ROWS] = {0,1,2,3,4,5};
-uint8_t COL_ORDER[COLS] = {0,1,2,3,4,5};
+
+// Rows: 1-4, 3-6, 
+// cols: 1-4, 3-7, 6
+
+//If using normal circuit
+uint8_t ROW_ORDER[ROWS] = {0,1,2,3,4,5,6,7};
+uint8_t COL_ORDER[COLS] = {0,1,2,3,4,5,6,7};
+//If using boxed circuit
+//uint8_t ROW_ORDER[ROWS] = {0,1,2,3,4,5,6,7};
+//uint8_t COL_ORDER[COLS] = {0,1,2,3,4,5,7,6};
+
 
 FDC2214 fdc1(FDC2214_I2C_ADDR_0);   // address when pulled low (0x2A)
 

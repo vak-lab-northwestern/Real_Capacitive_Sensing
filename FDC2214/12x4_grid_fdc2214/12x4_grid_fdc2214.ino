@@ -60,7 +60,7 @@ void setup() {
     Serial.begin(115200);
     while (!Serial && millis() < 3000);
 
-    Wire.begin(0x2A);
+    Wire.begin();
 
     if (!fdc.begin()) {
         Serial.println(F("FDC2214 not found"));
@@ -85,7 +85,7 @@ void setup() {
 
 void loop() {
 
-
+    Serial.print("YO");
     for(int r = 0; r < 4; r++){
         if(r == 0){
             digitalWrite(mux1_A, LOW);
