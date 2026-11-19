@@ -1,47 +1,28 @@
-// SPDX-License-Identifier: MIT
-// SPDX-FileCopyrightText: Copyright (c) 2026 Ashwin Whitchurch, Protocentral Electronics
 
-/*
- * 04_Capacitance - Convert FDC2214 frequency to picofarads
- *
- * Copyright (c) 2026 Ashwin Whitchurch, Protocentral Electronics
- * Email: info@protocentral.com
- *
- * Converts the ProtoCentral FDC2214 frequency reading into picofarads using
- * the LC resonance equation:
- *
- *     C = 1 / (L * (2*pi*f)^2)
- *
- * You must tell the library the value of the inductor used in your LC tank.
- * The ProtoCentral FDC2214 breakout uses a 15 uH inductor with a 33 pF cap.
- *
- * This software is licensed under the MIT License.
- */
-
-//////////////////////////////////////////////////////////////////////////////////////////
-//
-//    Hardware Setup:
-//      Connect your LC tank between IN0A and IN0B.
-//        3.3V -> VCC
-//        GND  -> GND
-//        SDA  -> SDA (21 on Esp32)
-//        SCL  -> SCL (22 on Esp32)
-//
-//      MUX
-//        A,B (1,rows) -> 4,5 on Esp32
-//        A,B (2,cols) -> 18, 19 on Esp32
-//
-/////////////////////////////////////////////////////////////////////////////////////////
 
 #include <Wire.h>
 #include <Protocentral_FDC2214.h>
 
+<<<<<<< Updated upstream:FDC2214/12x4_grid_fdc2214/12x4_grid_fdc2214.ino
 // >>> EDIT THIS to match your tank inductor <<<
 const float TANK_INDUCTANCE_UH = 18.0f;
 const int mux1_A = 4;
 const int mux1_B = 5;
 const int mux2_A = 18;
 const int mux2_B = 19;
+=======
+const float TANK_INDUCTANCE_UH = 18.0;
+const int mux1_A = 6;
+//const int mux1_B = 5;
+//const int mux1_C = 18;
+
+const int mux2_A = 38;
+//const int mux2_B = 16;
+//const int mux2_C = 19;
+
+const int inh_A = 7;
+const int inh_B = 47;
+>>>>>>> Stashed changes:FDC2214/4x4_grid_fdc2214/4x4_grid_fdc2214.ino
 
 FDC2214 fdc;
 
@@ -68,9 +49,22 @@ void setup() {
     }
 
     pinMode(mux1_A, OUTPUT);
+<<<<<<< Updated upstream:FDC2214/12x4_grid_fdc2214/12x4_grid_fdc2214.ino
     pinMode(mux1_B, OUTPUT);
     pinMode(mux2_A, OUTPUT);
     pinMode(mux2_B, OUTPUT);
+=======
+    //pinMode(mux1_B, OUTPUT);
+    //pinMode(mux1_C, OUTPUT);
+    pinMode(mux2_A, OUTPUT);
+    pinMode(inh_A, OUTPUT);
+    pinMode(inh_B, OUTPUT);
+    //pinMode(mux2_B, OUTPUT);
+   // pinMode(mux2_C, OUTPUT);
+
+    digitalWrite(inh_A, LOW);
+    digitalWrite(inh_B, LOW);
+>>>>>>> Stashed changes:FDC2214/4x4_grid_fdc2214/4x4_grid_fdc2214.ino
 
     fdc.configureDefaults();
     fdc.setActiveChannel(FDC2214_CH0);
@@ -85,6 +79,7 @@ void setup() {
 
 void loop() {
 
+<<<<<<< Updated upstream:FDC2214/12x4_grid_fdc2214/12x4_grid_fdc2214.ino
     Serial.print("YO");
     for(int r = 0; r < 4; r++){
         if(r == 0){
@@ -120,6 +115,36 @@ void loop() {
                 digitalWrite(mux2_A, HIGH);
                 digitalWrite(mux2_B, HIGH);
             }
+=======
+
+    for(int r = 0; r < 2; r++){
+        if(r == 0){
+            digitalWrite(mux1_A, LOW);
+            //digitalWrite(mux1_B, LOW);
+            //digitalWrite(mux1_C, LOW);
+        }
+        else if(r == 1){
+            digitalWrite(mux1_A, HIGH);
+            //digitalWrite(mux1_B, LOW);
+            //digitalWrite(mux1_C, LOW);
+        }
+        
+
+        for(int c =0; c < 2; c++){
+        if(c == 0){
+            digitalWrite(mux2_A, LOW);
+            //digitalWrite(mux2_B, LOW);
+            //digitalWrite(mux2_C, LOW);
+        }
+        else if(c == 1){
+            digitalWrite(mux2_A, HIGH);
+            //digitalWrite(mux2_B, LOW);
+            //digitalWrite(mux2_C, LOW);
+        }
+        
+
+
+>>>>>>> Stashed changes:FDC2214/4x4_grid_fdc2214/4x4_grid_fdc2214.ino
             Serial.print(r);
             Serial.print(",");
             Serial.print(c);
